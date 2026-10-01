@@ -24,6 +24,18 @@ Tests use the real SDK with its public ``Transport`` interface. No SDK methods
 are replaced, no live questions are mutated, and production adds no retry
 policy. Synthetic transports assert the exact mutation payload, including the
 absence of title, description, language, solution, and instruction fields.
+Additional contract tests exercise the SDK's default HTTPX transport through
+RESPX. They validate form and multipart fields against a pinned, reduced
+OpenAPI fixture from the SDK, inspect the SDK-generated ZIP bytes, and verify
+that metadata is absent from the outgoing update. The mock rejects every
+unregistered request. No SDK methods are replaced. See
+``tests/fixtures/README.rst`` for the fixture's source and update policy.
+
+The SDK remains the canonical owner of its OpenAPI contract. A separate spec
+repository would add a release and synchronization boundary without improving
+these upload tests. Consider extracting it if several independently versioned
+clients need a shared contract with its own maintainers and release policy.
+
 Add a Towncrier feature or bugfix fragment for each user-visible change.
 
 Versions derive from Git tags using setuptools-scm. Untagged initial builds

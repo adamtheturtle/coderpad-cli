@@ -100,6 +100,7 @@ def test_help_version(arguments: list[str]) -> None:
 @pytest.mark.parametrize(
     "arguments",
     [
+        [],
         ["--directory", ".", "--file", "example.py"],
         ["--file", "example.py", "--exclude", "*.zip"],
     ],
