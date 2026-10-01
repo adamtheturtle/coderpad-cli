@@ -43,7 +43,7 @@ dev = [
   "sphinx-click==6.2",
   "sphinx-lint==1.0.2",
   "towncrier==26.9",
-  "twine==6.2",
+  "twine==7.0.0",
   "ty==0.0.84",
 ]
 binary = [ "pyinstaller>=6.12" ]
