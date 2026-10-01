@@ -27,7 +27,7 @@ scripts.coderpad = "coderpad_cli:main"
 [dependency-groups]
 dev = [
   "actionlint-py==1.7.12.25",
-  "build==1.4",
+  "build==1.6.1",
   "check-wheel-contents==0.6.3",
   "doc8==2",
   "furo==2025.12.19",
