@@ -1,6 +1,7 @@
 """Upload starter code using the released CoderPad SDK."""
 
 import os
+from contextlib import AbstractContextManager
 from importlib.metadata import version
 from pathlib import Path
 
@@ -9,8 +10,9 @@ import httpx
 from coderpad.client import CoderPad
 from coderpad.exceptions import CoderPadError
 from coderpad.transports import Transport
+from coderpad.types import QuestionVariantFileContent
 
-from coderpad_cli._sources import prepare_source
+from coderpad_cli._sources import PreparedSource, prepare_source
 
 
 def create_cli(*, transport: Transport | None = None) -> click.Group:
@@ -28,6 +30,10 @@ def create_cli(*, transport: Transport | None = None) -> click.Group:
         """Manage question starter code."""
 
     @click.argument("question_id")
+    @click.option(
+        "--variant-id",
+        help="Update this variant instead of the question's starter code.",
+    )
     @click.option(
         "--directory",
         type=click.Path(path_type=Path, readable=False),
@@ -49,21 +55,30 @@ def create_cli(*, transport: Transport | None = None) -> click.Group:
         is_flag=True,
         help="Validate and list files without credentials or network access.",
     )
-    def upload(
+    def upload(  # noqa: PLR0913 - Click options plus the SDK transport boundary.
         question_id: str,
         directory: Path | None,
         source_file: Path | None,
         exclude: tuple[str, ...],
         *,
         dry_run: bool,
+        variant_id: str | None,
     ) -> None:
         """Replace starter code while preserving question metadata."""
-        _upload(
+        _validate_upload(
             question_id=question_id,
             directory=directory,
             source_file=source_file,
             exclude=exclude,
+            variant_id=variant_id,
+        )
+        _upload(
+            question_id=question_id,
+            prepared=prepare_source(
+                directory=directory, file=source_file, excludes=exclude
+            ),
             dry_run=dry_run,
+            variant_id=variant_id,
             transport=transport,
         )
 
@@ -76,18 +91,24 @@ def _validate_upload(
     directory: Path | None,
     source_file: Path | None,
     exclude: tuple[str, ...],
+    *,
+    variant_id: str | None,
 ) -> None:
-    """Validate command combinations and the question identifier."""
+    """Validate command combinations and target identifiers."""
     if (directory is None) == (source_file is None):
         msg = "Provide exactly one of --directory or --file."
         raise click.UsageError(message=msg)
-    if (
-        not question_id.isascii()
-        or not question_id.isdecimal()
-        or int(question_id) < 1
+    for name, identifier in (
+        ("QUESTION_ID", question_id),
+        ("--variant-id", variant_id),
     ):
-        msg = "QUESTION_ID must be a positive decimal integer."
-        raise click.BadParameter(message=msg, param_hint="QUESTION_ID")
+        if identifier is not None and (
+            not identifier.isascii()
+            or not identifier.isdecimal()
+            or int(identifier) < 1
+        ):
+            msg = f"{name} must be a positive decimal integer."
+            raise click.BadParameter(message=msg, param_hint=name)
     if len(exclude) > 0 and directory is None:
         msg = "--exclude requires --directory."
         raise click.UsageError(message=msg)
@@ -104,29 +125,68 @@ def _api_key() -> str:
     return api_key
 
 
-def _upload(  # noqa: PLR0913 - Click options plus the SDK transport boundary.
+def _variant_files(
+    source: PreparedSource,
+) -> list[QuestionVariantFileContent] | None:
+    """Decode every staged variant file before making any request."""
+    directory = source.directory
+    if directory is None:
+        return None
+    return [
+        QuestionVariantFileContent(
+            path=path,
+            contents=(directory / path).read_bytes().decode(encoding="utf-8"),
+        )
+        for path in source.files
+    ]
+
+
+def _update(
+    client: CoderPad,
     question_id: str,
-    directory: Path | None,
-    source_file: Path | None,
-    exclude: tuple[str, ...],
+    variant_id: str | None,
+    source: PreparedSource,
+    file_contents: list[QuestionVariantFileContent] | None,
+) -> None:
+    """Update only the selected question or variant's starter code."""
+    if variant_id is None:
+        client.questions.update(
+            question_id=question_id,
+            contents=source.contents,
+            directory=source.directory,
+        )
+    elif file_contents is None:
+        _ = client.questions.variants.update(
+            question_id=question_id,
+            variant_id=variant_id,
+            contents=source.contents,
+        )
+    else:
+        _ = client.questions.variants.update(
+            question_id=question_id,
+            variant_id=variant_id,
+            file_contents=file_contents,
+        )
+
+
+def _upload(
+    question_id: str,
+    prepared: AbstractContextManager[PreparedSource],
     *,
     dry_run: bool,
+    variant_id: str | None,
     transport: Transport | None,
 ) -> None:
     """Prepare input, call the SDK if requested, and report safe
     errors.
     """
-    _validate_upload(
-        question_id=question_id,
-        directory=directory,
-        source_file=source_file,
-        exclude=exclude,
-    )
     try:
-        with prepare_source(
-            directory=directory, file=source_file, excludes=exclude
-        ) as source:
+        with prepared as source:
             target = f"https://app.coderpad.io/dashboard/questions/all/{question_id}"
+            file_contents = None
+            if variant_id is not None:
+                target += f" variant {variant_id}"
+                file_contents = _variant_files(source=source)
             if dry_run:
                 click.echo(message=f"Would update {target}")
                 for path in source.files:
@@ -134,10 +194,12 @@ def _upload(  # noqa: PLR0913 - Click options plus the SDK transport boundary.
                 return
             api_key = _api_key()
             with CoderPad(api_key=api_key, transport=transport) as client:
-                client.questions.update(
+                _update(
+                    client=client,
                     question_id=question_id,
-                    contents=source.contents,
-                    directory=source.directory,
+                    variant_id=variant_id,
+                    source=source,
+                    file_contents=file_contents,
                 )
             click.echo(message=f"Updated {target}")
     except CoderPadError as error:

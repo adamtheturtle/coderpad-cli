@@ -147,6 +147,32 @@ def test_invalid_id(question_id: str, tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize(
+    argnames="variant_id",
+    argvalues=["", "0", "-1", "../7", "\uff17", "7?x", "abc", " "],
+)
+def test_invalid_variant_id(variant_id: str, tmp_path: Path) -> None:
+    """Reject malformed variant IDs before authentication or requests."""
+    source = tmp_path / "starter.py"
+    _ = source.write_text(data="pass\n")
+    transport = recording_transport(status=200, failure=None)
+    result = CliRunner().invoke(
+        cli=create_cli(transport=transport),
+        args=[
+            "questions",
+            "upload",
+            "123456",
+            f"--variant-id={variant_id}",
+            "--file",
+            str(object=source),
+        ],
+        env={"CODERPAD_API_KEY": None},
+    )
+    assert result.exit_code == USAGE_ERROR
+    assert "positive decimal integer" in result.output
+    assert transport.requests == []
+
+
+@pytest.mark.parametrize(
     argnames="contents",
     argvalues=[
         "",

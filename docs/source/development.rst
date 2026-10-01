@@ -30,8 +30,8 @@ Synthetic transports assert the exact mutation payload, including the absence
 of title, description, language, solution, and instruction fields.
 Additional contract tests exercise the SDK's default HTTPX transport through
 RESPX.
-They validate form and multipart fields against the pinned shared OpenAPI
-specification in ``spec/openapi.json``.
+They validate form, multipart, and variant JSON fields against the pinned
+shared OpenAPI specification in ``spec/openapi.json``.
 They also inspect the SDK-generated ZIP bytes and verify that metadata is
 absent from the outgoing update.
 The mock rejects every unregistered request.
