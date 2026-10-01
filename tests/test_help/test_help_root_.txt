@@ -1,0 +1,10 @@
+Usage: coderpad [OPTIONS] COMMAND [ARGS]...
+
+  Upload starter code to existing CoderPad questions.
+
+Options:
+  --version  Show the version and exit.
+  --help     Show this message and exit.
+
+Commands:
+  questions  Manage question starter code.

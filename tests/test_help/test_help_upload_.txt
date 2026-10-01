@@ -1,0 +1,11 @@
+Usage: coderpad questions upload [OPTIONS] QUESTION_ID
+
+  Replace starter code while preserving question metadata.
+
+Options:
+  --directory PATH  Project directory.
+  --file PATH       UTF-8 starter code file.
+  --exclude TEXT    Additional Gitignore pattern at the upload root. Repeatable.
+  --dry-run         Validate and list files without credentials or network
+                    access.
+  --help            Show this message and exit.

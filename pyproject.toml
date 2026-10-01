@@ -53,6 +53,8 @@ dev = [
   "pytest==9.1.1",
   "pytest-beartype==0.3.0",
   "pytest-cov==7.1",
+  "pytest-regressions==2.11.0",
+  "pytest-xdist==3.8.0",
   "respx==0.23.1",
   "ruff==0.16.9",
   "setuptools>=77",
@@ -193,8 +195,8 @@ keep_full_version = true
 max_supported_python = "3.14"
 
 [tool.mypy]
-files = [ "bin", "docs/source/conf.py", "src", "tests" ]
-exclude = [ "src/coderpad_cli/_version.py" ]
+files = [ "." ]
+exclude = [ "build", "src/coderpad_cli/_version.py" ]
 exclude_gitignore = true
 follow_untyped_imports = true
 python_version = "3.12"
@@ -202,7 +204,6 @@ strict = true
 plugins = [ "mypy_strict_kwargs" ]
 
 [tool.pyrefly]
-project-includes = [ "bin", "docs/source/conf.py", "src", "tests" ]
 project-excludes = [ "src/coderpad_cli/_version.py" ]
 search-path = [ "." ]
 errors.non-exhaustive-match = "error"
@@ -212,13 +213,11 @@ preset = "all"
 
 [tool.pyright]
 typeCheckingMode = "strict"
-include = [ "bin", "docs/source/conf.py", "src", "tests" ]
 exclude = [ "src/coderpad_cli/_version.py" ]
 enableTypeIgnoreComments = false
 reportUnnecessaryTypeIgnoreComment = true
 
 [tool.ty]
-src.include = [ "bin", "docs/source/conf.py", "src", "tests" ]
 src.exclude = [ "src/coderpad_cli/_version.py" ]
 rules.all = "error"
 terminal.error-on-warning = true
@@ -228,8 +227,9 @@ analysis.strict-generic-narrowing = true
 
 [tool.pytest]
 ini_options.testpaths = [ "tests" ]
-ini_options.addopts = "--cov=coderpad_cli --cov-branch --cov-fail-under=100"
+ini_options.addopts = "-n auto --cov=coderpad_cli --cov-branch --cov-fail-under=100"
 ini_options.xfail_strict = true
+ini_options.beartype_packages = [ "coderpad_cli" ]
 ini_options.beartype_test_fixtures = true
 ini_options.beartype_tests = true
 
