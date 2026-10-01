@@ -7,5 +7,6 @@ coderpad-cli
    usage
    cli
    development
+   macos-releases
    migration
    changelog

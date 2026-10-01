@@ -59,8 +59,10 @@ environment variable for an upload:
 
 The Nix flake uses uv2nix and the committed lockfiles. Its build injects an
 SCM version because Git metadata is unavailable in Nix source snapshots.
-Standalone macOS builds are unsigned; distribution signing and notarization
-can be added after configuring the owner's Apple credentials.
+Ordinary macOS CI builds use PyInstaller's ad-hoc signature and do not use
+Apple credentials. Distribution signing and notarization are required by the
+release workflow. See :doc:`macos-releases`
+for signing, notarization, and credential setup.
 
 External setup
 --------------
@@ -73,8 +75,11 @@ External setup
   ``publish-site.yml``. CI builds documentation without deploying it.
 * Allow Actions to create GitHub Releases and publish the repository's GHCR
   package. Make the GHCR package public after the first release if needed.
-* No Homebrew tap, winget manifest, package-manager registration, Apple
-  certificates, or TestPyPI configuration has been created. Do not advertise
+* Configure the five macOS signing and notarization repository secrets in
+  :doc:`macos-releases` before releasing. A missing credential fails the build;
+  releases cannot fall back to an unsigned macOS binary.
+* No Homebrew tap, winget manifest, package-manager registration, or
+  TestPyPI configuration has been created. Do not advertise
   those installation paths until they exist.
 * Configure branch protection and required checks after the first CI run.
   The public repository's tests and builds do not need a CoderPad key.
