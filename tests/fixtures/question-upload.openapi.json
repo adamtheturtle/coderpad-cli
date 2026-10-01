@@ -1,0 +1,87 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "CoderPad question upload test contract",
+    "version": "2026.10.1.1"
+  },
+  "paths": {
+    "/api/questions/{id}": {
+      "put": {
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/QuestionForm"
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/QuestionForm"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "example": {
+                  "status": "OK"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "QuestionForm": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "question[title]": {
+            "type": "string"
+          },
+          "question[language]": {
+            "type": "string"
+          },
+          "question[description]": {
+            "type": "string"
+          },
+          "question[contents]": {
+            "type": "string"
+          },
+          "question[solution]": {
+            "type": "string"
+          },
+          "question[ai_assist_custom_system_prompt]": {
+            "type": "string"
+          },
+          "question[candidate_instructions]": {
+            "type": "string",
+            "contentMediaType": "application/json"
+          },
+          "question[file_contents]": {
+            "type": "string",
+            "contentMediaType": "application/json"
+          },
+          "question[zip_file]": {
+            "type": "string",
+            "format": "binary"
+          }
+        }
+      }
+    }
+  }
+}
