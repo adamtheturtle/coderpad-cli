@@ -12,7 +12,9 @@ from pathspec import GitIgnoreSpec
 
 
 def reject_symlinks(path: Path) -> None:
-    """Reject symlinks in the path and its ancestors before resolving it."""
+    """Reject symlinks in the path and its ancestors before resolving
+    it.
+    """
     for component in (path, *path.parents):
         if component.is_symlink():
             msg = f"Symbolic links are not supported: {component}"
@@ -23,13 +25,13 @@ def _rules(directory: Path) -> tuple[tuple[Path, GitIgnoreSpec], ...]:
     """Read one directory's ignore rules without following symlinks."""
     ignore_file = directory / ".gitignore"
     if ignore_file.is_symlink():
-        reject_symlinks(ignore_file)
+        reject_symlinks(path=ignore_file)
     if ignore_file.is_file():
         return (
             (
                 directory,
                 GitIgnoreSpec.from_lines(
-                    ignore_file.read_text(encoding="utf-8").splitlines(),
+                    lines=ignore_file.read_text(encoding="utf-8").splitlines(),
                 ),
             ),
         )
@@ -47,11 +49,11 @@ def _inherited_rules(
                 bases.append(bases[-1].parent)
             rules: list[tuple[Path, GitIgnoreSpec]] = []
             for base in reversed(bases):
-                if _is_ignored(base, rules, suffix="/"):
+                if _is_ignored(path=base, rules=rules, suffix="/"):
                     return None
-                rules.extend(_rules(base))
+                rules.extend(_rules(directory=base))
             return tuple(rules)
-    return _rules(directory)
+    return _rules(directory=directory)
 
 
 def _is_ignored(
@@ -60,10 +62,14 @@ def _is_ignored(
     *,
     suffix: str,
 ) -> bool:
-    """Apply the last matching rule from the deepest matching ignore file."""
+    """Apply the last matching rule from the deepest matching ignore
+    file.
+    """
     ignored = False
     for base, spec in rules:
-        match = spec.check_file(path.relative_to(base).as_posix() + suffix)
+        match = spec.check_file(
+            file=path.relative_to(base).as_posix() + suffix
+        )
         if match.include is not None:
             ignored = match.include
     return ignored
@@ -80,37 +86,42 @@ def selected_files(
     directory: Path, excludes: tuple[str, ...]
 ) -> tuple[Path, ...]:
     """Select regular files using layered Git ignores and final exclusions."""
-    exclusion_spec = GitIgnoreSpec.from_lines(excludes)
+    exclusion_spec = GitIgnoreSpec.from_lines(lines=excludes)
 
     def walk(
         parent: Path, rules: tuple[tuple[Path, GitIgnoreSpec], ...]
     ) -> Iterator[Path]:
+        """Traverse selected directories without following links."""
         for path in sorted(parent.iterdir()):
             if path.name.casefold() == ".git":
                 continue
             is_directory = path.is_dir()
             suffix = "/" if is_directory else ""
             relative = path.relative_to(directory).as_posix() + suffix
-            if exclusion_spec.match_file(relative):
+            if exclusion_spec.match_file(file=relative):
                 continue
-            if _is_ignored(path, rules, suffix=suffix):
+            if _is_ignored(path=path, rules=rules, suffix=suffix):
                 continue
-            reject_symlinks(path)
+            reject_symlinks(path=path)
             if is_directory:
-                yield from walk(path, (*rules, *_rules(path)))
+                yield from walk(
+                    parent=path, rules=(*rules, *_rules(directory=path))
+                )
             else:
-                require_regular_file(path)
+                require_regular_file(path=path)
                 yield path.relative_to(directory)
 
-    inherited = _inherited_rules(directory)
+    inherited = _inherited_rules(directory=directory)
     if inherited is None:
         return ()
-    return tuple(walk(directory, inherited))
+    return tuple(walk(parent=directory, rules=inherited))
 
 
 @dataclass(frozen=True)
 class PreparedSource:
-    """Validated contents or an isolated directory for SDK serialization."""
+    """Validated contents or an isolated directory for SDK
+    serialization.
+    """
 
     contents: str | None
     directory: Path | None
@@ -123,23 +134,25 @@ def prepare_source(
 ) -> Generator[PreparedSource]:
     """Read or stage everything before allowing a network mutation."""
     if file is not None:
-        reject_symlinks(file.absolute())
+        reject_symlinks(path=file.absolute())
         if not file.is_file():
             msg = f"Not a regular file: {file}"
             raise ValueError(msg)
         # Decode bytes to avoid read_text universal-newline conversion.
-        contents = file.read_bytes().decode("utf-8")
-        yield PreparedSource(contents, None, (str(file),))
+        contents = file.read_bytes().decode(encoding="utf-8")
+        yield PreparedSource(
+            contents=contents, directory=None, files=(str(object=file),)
+        )
         return
     if directory is None:
         msg = "Provide exactly one of --directory or --file."
         raise ValueError(msg)
-    reject_symlinks(directory.absolute())
+    reject_symlinks(path=directory.absolute())
     directory = directory.resolve(strict=True)
     if not directory.is_dir():
         msg = f"Not a directory: {directory}"
         raise ValueError(msg)
-    files = selected_files(directory, excludes)
+    files = selected_files(directory=directory, excludes=excludes)
     if len(files) == 0:
         msg = "No files selected for upload."
         raise ValueError(msg)
@@ -148,13 +161,15 @@ def prepare_source(
         staged.mkdir()
         for relative in files:
             source = directory / relative
-            reject_symlinks(source)
+            reject_symlinks(path=source)
             target = staged / relative
             target.parent.mkdir(parents=True, exist_ok=True)
             # Never dereference a symlink introduced after selection. The SDK
             # independently rejects any symlinks present in the staged tree.
-            _ = copyfile(source, target, follow_symlinks=False)
-            reject_symlinks(target)
+            _ = copyfile(src=source, dst=target, follow_symlinks=False)
+            reject_symlinks(path=target)
         yield PreparedSource(
-            None, staged, tuple(path.as_posix() for path in files)
+            contents=None,
+            directory=staged,
+            files=tuple(path.as_posix() for path in files),
         )
