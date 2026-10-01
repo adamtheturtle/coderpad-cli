@@ -1,4 +1,6 @@
-"""Exercise the default SDK HTTPX transport against its pinned API contract."""
+"""Exercise the default SDK HTTPX transport against its pinned API
+contract.
+"""
 
 import json
 from email import policy
@@ -33,7 +35,7 @@ type JSONValue = (
 def _contract_section(*keys: str) -> dict[str, JSONValue]:
     """Read a dictionary section from the bundled contract fixture."""
     value: JSONValue = dict[str, JSONValue](
-        json.loads(_CONTRACT.read_text(encoding="utf-8")),
+        json.loads(s=_CONTRACT.read_text(encoding="utf-8")),
     )
     for key in keys:
         assert isinstance(value, dict)
@@ -44,8 +46,8 @@ def _contract_section(*keys: str) -> dict[str, JSONValue]:
 
 def _validator(schema: dict[str, JSONValue]) -> Validator:
     """Build a checked validator through jsonschema's typed protocol."""
-    Draft4Validator.check_schema(schema)
-    return Draft4Validator(schema)
+    Draft4Validator.check_schema(schema=schema)
+    return Draft4Validator(schema=schema)
 
 
 def _fields(request: httpx.Request) -> dict[str, str | bytes]:
@@ -53,28 +55,28 @@ def _fields(request: httpx.Request) -> dict[str, str | bytes]:
     content_type = request.headers["content-type"]
     if content_type == "application/x-www-form-urlencoded":
         fields = parse_qs(
-            request.content.decode("utf-8"),
+            qs=request.content.decode(encoding="utf-8"),
             keep_blank_values=True,
             strict_parsing=True,
         )
         assert all(len(values) == 1 for values in fields.values())
         return {name: values[0] for name, values in fields.items()}
     message = BytesParser(policy=policy.default).parsebytes(
-        b"Content-Type: "
-        + content_type.encode("ascii")
+        text=b"Content-Type: "
+        + content_type.encode(encoding="ascii")
         + b"\r\nMIME-Version: 1.0\r\n\r\n"
         + request.content,
     )
     assert message.is_multipart()
     result: dict[str, str | bytes] = {}
     for part in message.iter_parts():
-        name = part.get_param("name", header="content-disposition")
+        name = part.get_param(param="name", header="content-disposition")
         assert isinstance(name, str)
         assert name not in result
         payload = part.get_payload(decode=True)
         assert isinstance(payload, bytes)
         if part.get_filename() is None:
-            result[name] = payload.decode("utf-8")
+            result[name] = payload.decode(encoding="utf-8")
         else:
             assert part.get_filename() == "project.zip"
             assert part.get_content_type() == "application/zip"
@@ -99,23 +101,28 @@ def _validate_contract(
     # OpenAPI binary fields have JSON Schema type string, with a binary format.
     # Keep original bytes for ZIP checks; decode only for schema validation.
     normalized = {
-        name: value.decode("latin-1") if isinstance(value, bytes) else value
+        name: value.decode(encoding="latin-1")
+        if isinstance(value, bytes)
+        else value
         for name, value in fields.items()
     }
-    validator = _validator(schema)
-    validator.validate(normalized)
+    validator = _validator(schema=schema)
+    validator.validate(instance=normalized)
     assert request.headers["authorization"] == 'Token token="synthetic-secret"'
-    assert str(request.url) == _URL
+    assert str(object=request.url) == _URL
     assert request.method == "PUT"
 
 
 @pytest.mark.parametrize(
-    "contents", ["", "\ufeff# documentation-marker\r\nπ = 3  \r\n\r\n", "pass"]
+    argnames="contents",
+    argvalues=["", "\ufeff# documentation-marker\r\nπ = 3  \r\n\r\n", "pass"],
 )
 def test_file_over_default_httpx(contents: str, tmp_path: Path) -> None:
-    """Exact text survives URL encoding; metadata is absent from the wire."""
+    """Exact text survives URL encoding; metadata is absent from the
+    wire.
+    """
     source = tmp_path / "starter.py"
-    _ = source.write_bytes(contents.encode("utf-8"))
+    _ = source.write_bytes(data=contents.encode(encoding="utf-8"))
     metadata = {
         "title": "Synthetic title",
         "description": "Existing notes",
@@ -125,17 +132,23 @@ def test_file_over_default_httpx(contents: str, tmp_path: Path) -> None:
 
     def update(request: httpx.Request) -> httpx.Response:
         """Validate and apply only the supplied starter-code attribute."""
-        fields = _fields(request)
-        _validate_contract(request, fields)
+        fields = _fields(request=request)
+        _validate_contract(request=request, fields=fields)
         assert fields == {"question[contents]": contents}
         state["contents"] = contents
-        return httpx.Response(HTTPStatus.OK, json={"status": "OK"})
+        return httpx.Response(status_code=HTTPStatus.OK, json={"status": "OK"})
 
     with respx.mock(assert_all_mocked=True) as router:
-        route = router.put(_URL).mock(side_effect=update)
+        route = router.put(url=_URL).mock(side_effect=update)
         result = CliRunner().invoke(
-            main,
-            ["questions", "upload", "123456", "--file", str(source)],
+            cli=main,
+            args=[
+                "questions",
+                "upload",
+                "123456",
+                "--file",
+                str(object=source),
+            ],
             env={"CODERPAD_API_KEY": "synthetic-secret"},
         )
         assert result.exit_code == 0, result.output
@@ -145,11 +158,13 @@ def test_file_over_default_httpx(contents: str, tmp_path: Path) -> None:
 
 
 def test_directory_over_default_httpx(tmp_path: Path) -> None:
-    """The default transport emits the SDK ZIP as a multipart file field."""
+    """The default transport emits the SDK ZIP as a multipart file
+    field.
+    """
     source = tmp_path / "project"
     write_files(
-        source,
-        {
+        root=source,
+        files={
             "main.py": b"pass\r\n",
             "sub/data.bin": b"\x00\xff",
             "bundle.zip": b"skip",
@@ -165,28 +180,30 @@ def test_directory_over_default_httpx(tmp_path: Path) -> None:
     uploaded = {"main.py": b"pass\r\n", "sub/data.bin": b"\x00\xff"}
 
     def update(request: httpx.Request) -> httpx.Response:
-        """Apply the SDK-generated archive after checking its wire contract."""
-        fields = _fields(request)
-        _validate_contract(request, fields)
+        """Apply the SDK-generated archive after checking its wire
+        contract.
+        """
+        fields = _fields(request=request)
+        _validate_contract(request=request, fields=fields)
         assert tuple(fields) == ("question[zip_file]",)
         archive_bytes = fields["question[zip_file]"]
         assert isinstance(archive_bytes, bytes)
-        with ZipFile(BytesIO(archive_bytes)) as archive:
+        with ZipFile(file=BytesIO(initial_bytes=archive_bytes)) as archive:
             state["files"] = {
-                name: archive.read(name) for name in archive.namelist()
+                name: archive.read(name=name) for name in archive.namelist()
             }
-        return httpx.Response(HTTPStatus.OK, json={"status": "OK"})
+        return httpx.Response(status_code=HTTPStatus.OK, json={"status": "OK"})
 
     with respx.mock(assert_all_mocked=True) as router:
-        route = router.put(_URL).mock(side_effect=update)
+        route = router.put(url=_URL).mock(side_effect=update)
         result = CliRunner().invoke(
-            main,
-            [
+            cli=main,
+            args=[
                 "questions",
                 "upload",
                 "123456",
                 "--directory",
-                str(source),
+                str(object=source),
                 "--exclude",
                 "*.zip",
             ],
@@ -199,8 +216,8 @@ def test_directory_over_default_httpx(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize(
-    "status",
-    [
+    argnames="status",
+    argvalues=[
         HTTPStatus.UNAUTHORIZED,
         HTTPStatus.FORBIDDEN,
         HTTPStatus.NOT_FOUND,
@@ -211,17 +228,25 @@ def test_directory_over_default_httpx(tmp_path: Path) -> None:
 def test_api_failure_over_default_httpx(
     status: HTTPStatus, tmp_path: Path
 ) -> None:
-    """HTTP errors retain SDK semantics and never disclose response secrets."""
+    """HTTP errors retain SDK semantics and never disclose response
+    secrets.
+    """
     source = tmp_path / "starter.py"
-    _ = source.write_text("pass")
+    _ = source.write_text(data="pass")
     with respx.mock(assert_all_mocked=True) as router:
-        route = router.put(_URL).respond(
-            status.value,
+        route = router.put(url=_URL).respond(
+            status_code=status.value,
             json={"status": "ERROR", "message": "synthetic-secret"},
         )
         result = CliRunner().invoke(
-            main,
-            ["questions", "upload", "123456", "--file", str(source)],
+            cli=main,
+            args=[
+                "questions",
+                "upload",
+                "123456",
+                "--file",
+                str(object=source),
+            ],
             env={"CODERPAD_API_KEY": "synthetic-secret"},
         )
         assert result.exit_code == 1
@@ -235,14 +260,20 @@ def test_api_failure_over_default_httpx(
 def test_timeout_over_default_httpx(tmp_path: Path) -> None:
     """The default SDK transport's network failures are handled safely."""
     source = tmp_path / "starter.py"
-    _ = source.write_text("pass")
+    _ = source.write_text(data="pass")
     with respx.mock(assert_all_mocked=True) as router:
-        route = router.put(_URL).mock(
-            side_effect=httpx.ReadTimeout("synthetic-secret")
+        route = router.put(url=_URL).mock(
+            side_effect=httpx.ReadTimeout(message="synthetic-secret")
         )
         result = CliRunner().invoke(
-            main,
-            ["questions", "upload", "123456", "--file", str(source)],
+            cli=main,
+            args=[
+                "questions",
+                "upload",
+                "123456",
+                "--file",
+                str(object=source),
+            ],
             env={"CODERPAD_API_KEY": "synthetic-secret"},
         )
         assert result.exit_code == 1
@@ -252,21 +283,21 @@ def test_timeout_over_default_httpx(tmp_path: Path) -> None:
         assert route.call_count == 1
 
 
-@pytest.mark.parametrize("mode", ["directory", "file"])
+@pytest.mark.parametrize(argnames="mode", argvalues=["directory", "file"])
 def test_offline_dry_run_at_http_boundary(mode: str, tmp_path: Path) -> None:
     """With no mock routes or key, dry runs still make zero requests."""
     source = tmp_path / "starter.py"
-    _ = source.write_text("pass")
+    _ = source.write_text(data="pass")
     path = tmp_path if mode == "directory" else source
     with respx.mock(assert_all_mocked=True, assert_all_called=False) as router:
         result = CliRunner().invoke(
-            main,
-            [
+            cli=main,
+            args=[
                 "questions",
                 "upload",
                 "123456",
                 f"--{mode}",
-                str(path),
+                str(object=path),
                 "--dry-run",
             ],
             env={"CODERPAD_API_KEY": None},
@@ -279,24 +310,28 @@ def test_http_mock_fails_closed() -> None:
     """Any unexpected request is rejected rather than sent to CoderPad."""
     with (
         respx.mock(assert_all_mocked=True, assert_all_called=False),
-        pytest.raises(AllMockedAssertionError),
+        pytest.raises(expected_exception=AllMockedAssertionError),
     ):
-        _ = httpx.get("https://app.coderpad.io/api/unexpected")
+        _ = httpx.get(url="https://app.coderpad.io/api/unexpected")
 
 
 def test_contract_rejects_unknown_field() -> None:
-    """The mock catches fields missing from the canonical upload schema."""
+    """The mock catches fields missing from the canonical upload
+    schema.
+    """
 
     def update(request: httpx.Request) -> httpx.Response:
         """Reject the misspelled form field at the HTTP boundary."""
-        _validate_contract(request, _fields(request))
-        return httpx.Response(HTTPStatus.OK, json={"status": "OK"})
+        _validate_contract(request=request, fields=_fields(request=request))
+        return httpx.Response(status_code=HTTPStatus.OK, json={"status": "OK"})
 
     with respx.mock(assert_all_mocked=True) as router:
-        _ = router.put(_URL).mock(side_effect=update)
-        with pytest.raises(ValidationError, match="Additional properties"):
+        _ = router.put(url=_URL).mock(side_effect=update)
+        with pytest.raises(
+            expected_exception=ValidationError, match="Additional properties"
+        ):
             _ = httpx.put(
-                _URL,
+                url=_URL,
                 headers={"Authorization": 'Token token="synthetic-secret"'},
                 data={"question[titel]": "mistake"},
             )
