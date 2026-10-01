@@ -161,3 +161,34 @@ def test_device_rejected() -> None:
     """Exercise the special-file boundary using the OS null device."""
     with pytest.raises(ValueError, match="Only regular files"):
         require_regular_file(Path(os.devnull))
+
+
+@pytest.mark.parametrize("upload_path", ["project", "project/nested"])
+def test_ignored_upload_ancestor(upload_path: str, tmp_path: Path) -> None:
+    """Nested upload roots cannot revive files below an ignored ancestor."""
+    root = tmp_path / "repo"
+    write_files(
+        root,
+        {
+            ".git/config": b"synthetic",
+            ".gitignore": b"project/\n",
+            "project/.gitignore": b"!nested/\n!main.py\n",
+            "project/main.py": b"pass",
+            "project/nested/main.py": b"pass",
+        },
+    )
+    transport = RecordingTransport()
+    result = CliRunner().invoke(
+        create_cli(transport=transport),
+        [
+            "questions",
+            "upload",
+            "123456",
+            "--directory",
+            str(root / upload_path),
+            "--dry-run",
+        ],
+    )
+    assert result.exit_code == 1
+    assert result.output == "Error: No files selected for upload.\n"
+    assert transport.requests == []
