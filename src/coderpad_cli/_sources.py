@@ -1,7 +1,7 @@
 """Prepare local sources before handing them to the SDK."""
 
 import stat
-from collections.abc import Generator, Iterator
+from collections.abc import Generator, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -38,17 +38,35 @@ def _rules(directory: Path) -> tuple[tuple[Path, GitIgnoreSpec], ...]:
 
 def _inherited_rules(
     directory: Path,
-) -> tuple[tuple[Path, GitIgnoreSpec], ...]:
+) -> tuple[tuple[Path, GitIgnoreSpec], ...] | None:
     """Inherit rules from the nearest Git root, or start at the source."""
     for candidate in (directory, *directory.parents):
         if (candidate / ".git").exists():
             bases = [directory]
             while bases[-1] != candidate:
                 bases.append(bases[-1].parent)
-            return tuple(
-                rule for base in reversed(bases) for rule in _rules(base)
-            )
+            rules: list[tuple[Path, GitIgnoreSpec]] = []
+            for base in reversed(bases):
+                if _is_ignored(base, rules, suffix="/"):
+                    return None
+                rules.extend(_rules(base))
+            return tuple(rules)
     return _rules(directory)
+
+
+def _is_ignored(
+    path: Path,
+    rules: Sequence[tuple[Path, GitIgnoreSpec]],
+    *,
+    suffix: str,
+) -> bool:
+    """Apply the last matching rule from the deepest matching ignore file."""
+    ignored = False
+    for base, spec in rules:
+        match = spec.check_file(path.relative_to(base).as_posix() + suffix)
+        if match.include is not None:
+            ignored = match.include
+    return ignored
 
 
 def require_regular_file(path: Path) -> None:
@@ -75,14 +93,7 @@ def selected_files(
             relative = path.relative_to(directory).as_posix() + suffix
             if exclusion_spec.match_file(relative):
                 continue
-            ignored = False
-            for base, spec in rules:
-                match = spec.check_file(
-                    path.relative_to(base).as_posix() + suffix
-                )
-                if match.include is not None:
-                    ignored = match.include
-            if ignored:
+            if _is_ignored(path, rules, suffix=suffix):
                 continue
             reject_symlinks(path)
             if is_directory:
@@ -91,7 +102,10 @@ def selected_files(
                 require_regular_file(path)
                 yield path.relative_to(directory)
 
-    return tuple(walk(directory, _inherited_rules(directory)))
+    inherited = _inherited_rules(directory)
+    if inherited is None:
+        return ()
+    return tuple(walk(directory, inherited))
 
 
 @dataclass(frozen=True)
