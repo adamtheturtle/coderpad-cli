@@ -24,8 +24,8 @@ jobs:
           python-version: '3.12'
       - run: uv run --locked sphinx-build -W --keep-going -b html docs/source docs/build/html
       - uses: actions/configure-pages@v6
-      - uses: actions/upload-pages-artifact@v4
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: docs/build/html
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

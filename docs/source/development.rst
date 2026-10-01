@@ -24,6 +24,18 @@ Tests use the real SDK with its public ``Transport`` interface. No SDK methods
 are replaced, no live questions are mutated, and production adds no retry
 policy. Synthetic transports assert the exact mutation payload, including the
 absence of title, description, language, solution, and instruction fields.
+Additional contract tests exercise the SDK's default HTTPX transport through
+RESPX. They validate form and multipart fields against a pinned, reduced
+OpenAPI fixture from the SDK, inspect the SDK-generated ZIP bytes, and verify
+that metadata is absent from the outgoing update. The mock rejects every
+unregistered request. No SDK methods are replaced. See
+``tests/fixtures/README.rst`` for the fixture's source and update policy.
+
+The SDK remains the canonical owner of its OpenAPI contract. A separate spec
+repository would add a release and synchronization boundary without improving
+these upload tests. Consider extracting it if several independently versioned
+clients need a shared contract with its own maintainers and release policy.
+
 Add a Towncrier feature or bugfix fragment for each user-visible change.
 
 Versions derive from Git tags using setuptools-scm. Untagged initial builds
@@ -59,8 +71,10 @@ environment variable for an upload:
 
 The Nix flake uses uv2nix and the committed lockfiles. Its build injects an
 SCM version because Git metadata is unavailable in Nix source snapshots.
-Standalone macOS builds are unsigned; distribution signing and notarization
-can be added after configuring the owner's Apple credentials.
+Ordinary macOS CI builds use PyInstaller's ad-hoc signature and do not use
+Apple credentials. Distribution signing and notarization are required by the
+release workflow. See :doc:`macos-releases`
+for signing, notarization, and credential setup.
 
 External setup
 --------------
@@ -73,8 +87,11 @@ External setup
   ``publish-site.yml``. CI builds documentation without deploying it.
 * Allow Actions to create GitHub Releases and publish the repository's GHCR
   package. Make the GHCR package public after the first release if needed.
-* No Homebrew tap, winget manifest, package-manager registration, Apple
-  certificates, or TestPyPI configuration has been created. Do not advertise
+* Configure the five macOS signing and notarization repository secrets in
+  :doc:`macos-releases` before releasing. A missing credential fails the build;
+  releases cannot fall back to an unsigned macOS binary.
+* No Homebrew tap, winget manifest, package-manager registration, or
+  TestPyPI configuration has been created. Do not advertise
   those installation paths until they exist.
 * Configure branch protection and required checks after the first CI run.
   The public repository's tests and builds do not need a CoderPad key.
