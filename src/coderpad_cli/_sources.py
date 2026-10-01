@@ -1,0 +1,146 @@
+"""Prepare local sources before handing them to the SDK."""
+
+import stat
+from collections.abc import Generator, Iterator
+from contextlib import contextmanager
+from dataclasses import dataclass
+from pathlib import Path
+from shutil import copyfile
+from tempfile import TemporaryDirectory
+
+from pathspec import GitIgnoreSpec
+
+
+def reject_symlinks(path: Path) -> None:
+    """Reject symlinks in the path and its ancestors before resolving it."""
+    for component in (path, *path.parents):
+        if component.is_symlink():
+            msg = f"Symbolic links are not supported: {component}"
+            raise ValueError(msg)
+
+
+def _rules(directory: Path) -> tuple[tuple[Path, GitIgnoreSpec], ...]:
+    """Read one directory's ignore rules without following symlinks."""
+    ignore_file = directory / ".gitignore"
+    if ignore_file.is_symlink():
+        reject_symlinks(ignore_file)
+    if ignore_file.is_file():
+        return (
+            (
+                directory,
+                GitIgnoreSpec.from_lines(
+                    ignore_file.read_text(encoding="utf-8").splitlines(),
+                ),
+            ),
+        )
+    return ()
+
+
+def _inherited_rules(
+    directory: Path,
+) -> tuple[tuple[Path, GitIgnoreSpec], ...]:
+    """Inherit rules from the nearest Git root, or start at the source."""
+    for candidate in (directory, *directory.parents):
+        if (candidate / ".git").exists():
+            bases = [directory]
+            while bases[-1] != candidate:
+                bases.append(bases[-1].parent)
+            return tuple(
+                rule for base in reversed(bases) for rule in _rules(base)
+            )
+    return _rules(directory)
+
+
+def require_regular_file(path: Path) -> None:
+    """Reject devices, pipes, and other special files before reading."""
+    if not stat.S_ISREG(path.stat().st_mode):
+        msg = f"Only regular files are supported: {path}"
+        raise ValueError(msg)
+
+
+def selected_files(
+    directory: Path, excludes: tuple[str, ...]
+) -> tuple[Path, ...]:
+    """Select regular files using layered Git ignores and final exclusions."""
+    exclusion_spec = GitIgnoreSpec.from_lines(excludes)
+
+    def walk(
+        parent: Path, rules: tuple[tuple[Path, GitIgnoreSpec], ...]
+    ) -> Iterator[Path]:
+        for path in sorted(parent.iterdir()):
+            if path.name.casefold() == ".git":
+                continue
+            is_directory = path.is_dir()
+            suffix = "/" if is_directory else ""
+            relative = path.relative_to(directory).as_posix() + suffix
+            if exclusion_spec.match_file(relative):
+                continue
+            ignored = False
+            for base, spec in rules:
+                match = spec.check_file(
+                    path.relative_to(base).as_posix() + suffix
+                )
+                if match.include is not None:
+                    ignored = match.include
+            if ignored:
+                continue
+            reject_symlinks(path)
+            if is_directory:
+                yield from walk(path, (*rules, *_rules(path)))
+            else:
+                require_regular_file(path)
+                yield path.relative_to(directory)
+
+    return tuple(walk(directory, _inherited_rules(directory)))
+
+
+@dataclass(frozen=True)
+class PreparedSource:
+    """Validated contents or an isolated directory for SDK serialization."""
+
+    contents: str | None
+    directory: Path | None
+    files: tuple[str, ...]
+
+
+@contextmanager
+def prepare_source(
+    *, directory: Path | None, file: Path | None, excludes: tuple[str, ...]
+) -> Generator[PreparedSource]:
+    """Read or stage everything before allowing a network mutation."""
+    if file is not None:
+        reject_symlinks(file.absolute())
+        if not file.is_file():
+            msg = f"Not a regular file: {file}"
+            raise ValueError(msg)
+        # Decode bytes to avoid read_text universal-newline conversion.
+        contents = file.read_bytes().decode("utf-8")
+        yield PreparedSource(contents, None, (str(file),))
+        return
+    if directory is None:
+        msg = "Provide exactly one of --directory or --file."
+        raise ValueError(msg)
+    reject_symlinks(directory.absolute())
+    directory = directory.resolve(strict=True)
+    if not directory.is_dir():
+        msg = f"Not a directory: {directory}"
+        raise ValueError(msg)
+    files = selected_files(directory, excludes)
+    if len(files) == 0:
+        msg = "No files selected for upload."
+        raise ValueError(msg)
+    with TemporaryDirectory(prefix="coderpad-cli-") as temporary:
+        staged = Path(temporary).resolve() / "project"
+        staged.mkdir()
+        for relative in files:
+            source = directory / relative
+            reject_symlinks(source)
+            target = staged / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            # Never dereference a symlink introduced after selection. The SDK
+            # independently rejects any symlinks present in the staged tree.
+            _ = copyfile(source, target, follow_symlinks=False)
+            reject_symlinks(target)
+        yield PreparedSource(
+            None, staged, tuple(path.as_posix() for path in files)
+        )

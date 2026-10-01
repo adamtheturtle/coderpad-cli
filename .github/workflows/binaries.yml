@@ -1,0 +1,45 @@
+name: Standalone binaries
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  binary:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: coderpad-linux
+          - os: macos-latest
+            name: coderpad-macos
+          - os: windows-latest
+            name: coderpad-windows
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          version: '0.12.19'
+          python-version: '3.13'
+      - run: uv run --locked --group binary pyinstaller --clean --onefile --copy-metadata coderpad-cli --name ${{ matrix.name }} bin/coderpad_wrapper.py
+      - name: Smoke binary
+        shell: bash
+        env:
+          NAME: ${{ matrix.name }}
+        run: |
+          executable="dist/$NAME"
+          if [ "$RUNNER_OS" = Windows ]; then executable="$executable.exe"; fi
+          "$executable" --help
+          "$executable" --version
+          "$executable" questions upload --help
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.name }}
+          path: dist/coderpad-*
