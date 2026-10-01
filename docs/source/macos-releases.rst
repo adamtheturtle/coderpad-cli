@@ -8,8 +8,8 @@ Installing the Python wheel with uv or pip does not use this binary.
 
 The release workflow calls ``binaries.yml`` with ``notarize: true`` and passes
 five repository secrets. Missing secrets stop the build before importing a
-certificate. PR and ordinary branch builds use an ad-hoc signature and have no
-access to these credentials. Their artifacts are development builds.
+certificate. PR and ordinary branch builds use an ad-hoc signature and do not
+use these credentials. Their artifacts are development builds.
 
 Signing and verification
 ------------------------
