@@ -10,3 +10,4 @@ include Dockerfile flake.nix flake.lock uv.lock
 recursive-include bin *.py
 recursive-include tests *.py *.json *.rst *.txt
 include .dockerignore
+include .gitattributes
