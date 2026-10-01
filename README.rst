@@ -53,6 +53,7 @@ Directory selection
   Patterns are relative to their owning directory. Directory-only rules and
   negations follow Gitignore semantics. Excluded directories are pruned, so
   a child cannot re-include itself unless its parent is re-included first.
+  This also applies to ancestors of an explicitly selected nested upload root.
 * Ignore rules apply to tracked files too. Global Git excludes and
   ``.git/info/exclude`` are not read. Hidden files, including ``.gitignore``,
   are uploaded unless excluded.
