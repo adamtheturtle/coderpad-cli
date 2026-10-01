@@ -29,6 +29,14 @@ jobs:
           path: dist/*
   binaries:
     uses: ./.github/workflows/binaries.yml
+    with:
+      notarize: true
+    secrets:
+      DEVELOPER_ID_APP_CERT_P12_BASE64: ${{ secrets.DEVELOPER_ID_APP_CERT_P12_BASE64 }}
+      DEVELOPER_ID_APP_CERT_PASSWORD: ${{ secrets.DEVELOPER_ID_APP_CERT_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
   publish:
     needs: [validate, binaries]
     runs-on: ubuntu-latest
