@@ -1,9 +1,10 @@
 Usage: coderpad questions [OPTIONS] COMMAND [ARGS]...
 
-  Manage question starter code.
+  Manage question starter code and variants.
 
 Options:
   --help  Show this message and exit.
 
 Commands:
-  upload  Replace starter code while preserving question metadata.
+  upload    Replace starter code while preserving question metadata.
+  variants  Manage variants of an existing question.

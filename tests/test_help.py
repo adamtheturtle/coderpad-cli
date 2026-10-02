@@ -12,8 +12,14 @@ from coderpad_cli import main
 
 @pytest.mark.parametrize(
     argnames="arguments",
-    argvalues=[[], ["questions"], ["questions", "upload"]],
-    ids=["root", "questions", "upload"],
+    argvalues=[
+        [],
+        ["questions"],
+        ["questions", "upload"],
+        ["questions", "variants"],
+        ["questions", "variants", "create"],
+    ],
+    ids=["root", "questions", "upload", "variants", "variants-create"],
 )
 def test_help(
     arguments: list[str], file_regression: FileRegressionFixture
