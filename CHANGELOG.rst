@@ -5,6 +5,18 @@ Releases are assembled from ``newsfragments/`` using Towncrier.
 
 .. towncrier release notes start
 
+2026.10.2 (2026-10-02)
+----------------------
+
+Features
+~~~~~~~~
+
+- Add ``--variant-id`` to ``coderpad questions upload`` for updating existing
+  question variants from a UTF-8 file or project directory, with shared source
+  selection, credential-free dry runs, and preserved metadata.
+  (#16)
+
+
 2026.10.1 (2026-10-01)
 ----------------------
 

@@ -1,3 +1,0 @@
-Add ``--variant-id`` to ``coderpad questions upload`` for updating existing
-question variants from a UTF-8 file or project directory, with shared source
-selection, credential-free dry runs, and preserved metadata.
