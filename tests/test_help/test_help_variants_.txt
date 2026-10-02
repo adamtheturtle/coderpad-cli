@@ -1,0 +1,9 @@
+Usage: coderpad questions variants [OPTIONS] COMMAND [ARGS]...
+
+  Manage variants of an existing question.
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  create  Create a variant and print its question and variant IDs as JSON.

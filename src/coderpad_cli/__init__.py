@@ -1,7 +1,9 @@
 """Upload starter code using the released CoderPad SDK."""
 
+import json
 import os
-from contextlib import AbstractContextManager
+from collections.abc import Generator
+from contextlib import AbstractContextManager, contextmanager, nullcontext
 from importlib.metadata import version
 from pathlib import Path
 
@@ -10,7 +12,7 @@ import httpx
 from coderpad.client import CoderPad
 from coderpad.exceptions import CoderPadError
 from coderpad.transports import Transport
-from coderpad.types import QuestionVariantFileContent
+from coderpad.types import QuestionVariantFileContent, QuestionVariantUnset
 
 from coderpad_cli._sources import PreparedSource, prepare_source
 
@@ -23,11 +25,11 @@ def create_cli(*, transport: Transport | None = None) -> click.Group:
         version=version(distribution_name="coderpad-cli"), prog_name="coderpad"
     )
     def cli() -> None:
-        """Upload starter code to existing CoderPad questions."""
+        """Upload starter code and create CoderPad question variants."""
 
     @cli.group()
     def questions() -> None:
-        """Manage question starter code."""
+        """Manage question starter code and variants."""
 
     @click.argument("question_id")
     @click.option(
@@ -83,7 +85,101 @@ def create_cli(*, transport: Transport | None = None) -> click.Group:
         )
 
     _ = questions.command()(upload)
+
+    @questions.group()
+    def variants() -> None:
+        """Manage variants of an existing question."""
+
+    @click.argument("question_id")
+    @click.option(
+        "--language", required=True, help="Language or project-template slug."
+    )
+    @click.option(
+        "--directory",
+        type=click.Path(path_type=Path, readable=False),
+        help="UTF-8 project directory to layer over the template.",
+    )
+    @click.option(
+        "--file",
+        "source_file",
+        type=click.Path(path_type=Path, readable=False),
+        help="UTF-8 starter code file. An empty file creates blank code.",
+    )
+    @click.option(
+        "--exclude",
+        multiple=True,
+        help="Additional Gitignore pattern at the upload root. Repeatable.",
+    )
+    @click.option(
+        "--dry-run",
+        is_flag=True,
+        help="Print a JSON plan without credentials or network access.",
+    )
+    def create(  # noqa: PLR0913
+        question_id: str,
+        language: str,
+        directory: Path | None,
+        source_file: Path | None,
+        exclude: tuple[str, ...],
+        *,
+        dry_run: bool,
+    ) -> None:
+        """Create a variant and print its question and variant IDs as JSON.
+
+        Omit --file and --directory to use default starter content.
+        Save the returned variant ID for subsequent uploads.
+        Each invocation creates a new variant; creation is never retried.
+        """
+        _validate_id(name="QUESTION_ID", identifier=question_id)
+        if language == "" or language.strip() != language:
+            msg = "Provide a nonempty language or project-template slug."
+            raise click.BadParameter(message=msg, param_hint="--language")
+        prepared: AbstractContextManager[PreparedSource]
+        if directory is not None or source_file is not None:
+            _validate_upload(
+                question_id=question_id,
+                directory=directory,
+                source_file=source_file,
+                exclude=exclude,
+                variant_id=None,
+            )
+            prepared = prepare_source(
+                directory=directory,
+                file=source_file,
+                excludes=exclude,
+            )
+        else:
+            if len(exclude) > 0:
+                msg = "--exclude requires --directory."
+                raise click.UsageError(message=msg)
+            prepared = nullcontext(
+                enter_result=PreparedSource(
+                    contents=None,
+                    directory=None,
+                    files=(),
+                ),
+            )
+        _create_variant(
+            question_id=question_id,
+            language=language,
+            prepared=prepared,
+            dry_run=dry_run,
+            transport=transport,
+        )
+
+    _ = variants.command()(create)
     return cli
+
+
+def _validate_id(name: str, identifier: str) -> None:
+    """Reject identifiers that cannot address a question or variant."""
+    if (
+        not identifier.isascii()
+        or not identifier.isdecimal()
+        or int(identifier) < 1
+    ):
+        msg = f"{name} must be a positive decimal integer."
+        raise click.BadParameter(message=msg, param_hint=name)
 
 
 def _validate_upload(
@@ -102,13 +198,8 @@ def _validate_upload(
         ("QUESTION_ID", question_id),
         ("--variant-id", variant_id),
     ):
-        if identifier is not None and (
-            not identifier.isascii()
-            or not identifier.isdecimal()
-            or int(identifier) < 1
-        ):
-            msg = f"{name} must be a positive decimal integer."
-            raise click.BadParameter(message=msg, param_hint=name)
+        if identifier is not None:
+            _validate_id(name=name, identifier=identifier)
     if len(exclude) > 0 and directory is None:
         msg = "--exclude requires --directory."
         raise click.UsageError(message=msg)
@@ -180,31 +271,90 @@ def _upload(
     """Prepare input, call the SDK if requested, and report safe
     errors.
     """
-    try:
-        with prepared as source:
-            target = f"https://app.coderpad.io/dashboard/questions/all/{question_id}"
-            file_contents = None
-            if variant_id is not None:
-                target += f" variant {variant_id}"
-                file_contents = _variant_files(source=source)
-            if dry_run:
-                click.echo(message=f"Would update {target}")
-                for path in source.files:
-                    click.echo(message=f"  {path}")
-                return
-            api_key = _api_key()
-            with CoderPad(api_key=api_key, transport=transport) as client:
-                _update(
-                    client=client,
+    with _request_errors(operation="upload"), prepared as source:
+        target = (
+            f"https://app.coderpad.io/dashboard/questions/all/{question_id}"
+        )
+        file_contents = None
+        if variant_id is not None:
+            target += f" variant {variant_id}"
+            file_contents = _variant_files(source=source)
+        if dry_run:
+            click.echo(message=f"Would update {target}")
+            for path in source.files:
+                click.echo(message=f"  {path}")
+            return
+        api_key = _api_key()
+        with CoderPad(api_key=api_key, transport=transport) as client:
+            _update(
+                client=client,
+                question_id=question_id,
+                variant_id=variant_id,
+                source=source,
+                file_contents=file_contents,
+            )
+        click.echo(message=f"Updated {target}")
+
+
+def _create_variant(
+    question_id: str,
+    language: str,
+    prepared: AbstractContextManager[PreparedSource],
+    *,
+    dry_run: bool,
+    transport: Transport | None,
+) -> None:
+    """Prepare an optional source and create exactly one variant."""
+    with _request_errors(operation="variant creation"), prepared as source:
+        file_contents = _variant_files(source=source)
+        if dry_run:
+            click.echo(
+                message=json.dumps(
+                    obj={
+                        "operation": "create_variant",
+                        "question_id": int(question_id),
+                        "language": language,
+                        "files": source.files,
+                    }
+                )
+            )
+            return
+        with CoderPad(api_key=_api_key(), transport=transport) as client:
+            try:
+                variant = client.questions.variants.create(
                     question_id=question_id,
-                    variant_id=variant_id,
-                    source=source,
+                    language=language,
+                    contents=(
+                        source.contents
+                        if source.contents is not None
+                        else QuestionVariantUnset.OMITTED
+                    ),
                     file_contents=file_contents,
                 )
-            click.echo(message=f"Updated {target}")
+            except ValueError:
+                msg = (
+                    "CoderPad returned an invalid variant response. "
+                    "Creation may have succeeded; check the question "
+                    "before retrying."
+                )
+                raise click.ClickException(message=msg) from None
+        click.echo(
+            message=json.dumps(
+                obj={
+                    "question_id": int(question_id),
+                    "variant_id": variant.id,
+                }
+            )
+        )
+
+
+@contextmanager
+def _request_errors(operation: str) -> Generator[None]:
+    """Translate preparation and SDK failures without exposing secrets."""
+    try:
+        yield
     except CoderPadError as error:
-        # Response bodies can contain secrets; only report the status.
-        msg = f"CoderPad rejected the upload (HTTP {error.status_code})."
+        msg = f"CoderPad rejected the {operation} (HTTP {error.status_code})."
         raise click.ClickException(message=msg) from None
     except httpx.TransportError:
         msg = "Could not reach CoderPad. Check your network connection."

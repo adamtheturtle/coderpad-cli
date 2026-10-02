@@ -49,6 +49,37 @@ Uploads retain the SDK's retry behavior.
 Question variants
 -----------------
 
+Create a variant once, using a language or project-template slug:
+
+.. code-block:: console
+
+   coderpad questions variants create 123456 --language python3 --dry-run
+   coderpad questions variants create 123456 --language python3 > variant.json
+   coderpad questions variants create 123456 --language javascript --file ./starter.js
+   coderpad questions variants create 123456 --language multifile_python --directory ./starter --exclude '*.zip'
+
+Successful creation writes only JSON to standard output, such as
+``{"question_id": 123456, "variant_id": 7}``.
+Save the returned ID in your upload configuration and use it for later updates.
+The CLI does not save IDs or match existing variants by language or title.
+Every real invocation creates a new variant and is never automatically retried.
+Existing question metadata and other variants are not changed.
+
+Omitting both sources uses the language or project template's default content.
+Use ``--file`` for single-file starter code; an empty file explicitly creates
+blank code instead of using the default.
+Use ``--directory`` for project files, which are layered over the template at
+creation rather than replacing all template files.
+Source selection and UTF-8 validation match variant uploads.
+The two sources are mutually exclusive; ``--exclude`` requires a directory.
+CoderPad validates whether the supplied language or template is available.
+Dry runs validate local inputs and print a JSON plan with the operation,
+question ID, language, and selected files, but no invented variant ID.
+They require neither credentials nor network access.
+Errors go to standard error with a nonzero exit status.
+If a creation response is lost or invalid, check the question before retrying
+to avoid creating a duplicate.
+
 To update an existing variant rather than the question's starter code, add
 ``--variant-id``:
 

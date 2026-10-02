@@ -21,7 +21,7 @@ from jsonschema.protocols import Validator
 from respx.models import AllMockedAssertionError
 
 from coderpad_cli import main
-from tests.test_cli import write_files
+from tests.test_cli import USAGE_ERROR, write_files
 
 _URL = "https://app.coderpad.io/api/questions/123456"
 _VARIANT_URL = f"{_URL}/variants/7"
@@ -524,3 +524,267 @@ def test_contract_rejects_unknown_field() -> None:
                 headers={"Authorization": 'Token token="synthetic-secret"'},
                 data={"question[titel]": "mistake"},
             )
+
+
+@pytest.mark.parametrize(
+    argnames=("language", "mode", "contents"),
+    argvalues=[
+        ("python3", "default", None),
+        ("multifile_python", "default", None),
+        ("javascript", "file", ""),
+        ("python3", "file", "\ufeffπ = 3  \r\n\r\n"),
+        ("multifile_python", "directory", "pass\r\n"),
+    ],
+)
+@pytest.mark.parametrize(argnames="dry_run", argvalues=[False, True])
+def test_create_variant(
+    language: str,
+    mode: str,
+    contents: str | None,
+    tmp_path: Path,
+    *,
+    dry_run: bool,
+) -> None:
+    """Create through the shared POST contract or plan entirely
+    offline.
+    """
+    arguments = [
+        "questions",
+        "variants",
+        "create",
+        "123456",
+        "--language",
+        language,
+    ]
+    expected: dict[str, JSONValue] = {"language": language}
+    selected: list[str] = []
+    if contents is not None:
+        source = tmp_path / "starter.py"
+        _ = source.write_bytes(data=contents.encode(encoding="utf-8"))
+        if mode == "directory":
+            write_files(
+                root=tmp_path,
+                files={
+                    ".gitignore": b"*.tmp\n",
+                    "ignored.tmp": b"ignored",
+                    "excluded.zip": b"excluded",
+                    ".git/config": b"private",
+                },
+            )
+            arguments.extend(
+                [
+                    "--directory",
+                    str(object=tmp_path),
+                    "--exclude",
+                    "*.zip",
+                    "--exclude",
+                    ".gitignore",
+                ]
+            )
+            expected["file_contents"] = [
+                {"path": "starter.py", "contents": contents},
+            ]
+            selected = ["starter.py"]
+        else:
+            arguments.extend(["--file", str(object=source)])
+            expected["contents"] = contents
+            selected = [str(object=source)]
+    if dry_run:
+        arguments.append("--dry-run")
+
+    def create(request: httpx.Request) -> httpx.Response:
+        """Validate an isolated creation, with no parent or sibling writes."""
+        schema = _contract_section(
+            "paths",
+            "/api/questions/{question_id}/variants",
+            "post",
+            "requestBody",
+            "content",
+            "application/json",
+            "schema",
+        )
+        validator = _validator(
+            schema={
+                **schema,
+                "components": _contract_section("components"),
+            }
+        )
+        body = dict[str, JSONValue](json.loads(s=request.content))
+        validator.validate(instance=body)
+        assert body == expected
+        assert request.method == "POST"
+        assert str(object=request.url) == f"{_URL}/variants"
+        assert request.headers["content-type"] == "application/json"
+        assert request.headers["authorization"] == (
+            'Token token="synthetic-secret"'
+        )
+        response = _variant_response()
+        if language != "multifile_python":
+            response.update(
+                {
+                    "language": language,
+                    "project_template_id": None,
+                    "project_template_slug": None,
+                }
+            )
+        return httpx.Response(status_code=HTTPStatus.OK, json=response)
+
+    with respx.mock(assert_all_mocked=True) as router:
+        if not dry_run:
+            _ = router.post(url=f"{_URL}/variants").mock(side_effect=create)
+        result = CliRunner().invoke(
+            cli=main,
+            args=arguments,
+            env={"CODERPAD_API_KEY": None if dry_run else "synthetic-secret"},
+        )
+        assert result.exit_code == 0, result.output
+        assert result.stderr == ""
+        if dry_run:
+            assert json.loads(s=result.stdout) == {
+                "operation": "create_variant",
+                "question_id": 123456,
+                "language": language,
+                "files": selected,
+            }
+            assert len(router.calls) == 0
+        else:
+            assert json.loads(s=result.stdout) == {
+                "question_id": 123456,
+                "variant_id": 7,
+            }
+            assert len(router.calls) == 1
+
+
+@pytest.mark.parametrize(
+    argnames="arguments",
+    argvalues=[
+        ["123456"],
+        ["123456", "--language="],
+        ["123456", "--language= "],
+        ["123456", "--language= python3"],
+        ["0", "--language=python3"],
+        ["abc", "--language=python3"],
+        ["\uff11\uff12\uff13", "--language=python3"],
+        ["123456", "--language=python3", "--file=a", "--directory=b"],
+        ["123456", "--language=python3", "--exclude=*.zip"],
+        ["123456", "--language=python3", "--file=a", "--exclude=*.zip"],
+    ],
+)
+def test_create_invalid_arguments(arguments: list[str]) -> None:
+    """Reject invalid creation options before any authentication or
+    I/O.
+    """
+    with respx.mock(assert_all_mocked=True) as router:
+        result = CliRunner().invoke(
+            cli=main,
+            args=["questions", "variants", "create", *arguments],
+            env={"CODERPAD_API_KEY": None},
+        )
+        assert result.exit_code == USAGE_ERROR
+        assert result.stdout == ""
+        assert len(router.calls) == 0
+
+
+@pytest.mark.parametrize(argnames="key", argvalues=[None, "", "   "])
+def test_create_missing_key(key: str | None) -> None:
+    """Creation needs a nonempty credential only when actually
+    requested.
+    """
+    with respx.mock(assert_all_mocked=True) as router:
+        result = CliRunner().invoke(
+            cli=main,
+            args=[
+                "questions",
+                "variants",
+                "create",
+                "123456",
+                "--language=python3",
+            ],
+            env={"CODERPAD_API_KEY": key},
+        )
+        assert result.exit_code == 1
+        assert result.stdout == ""
+        assert result.stderr == (
+            "Error: CODERPAD_API_KEY is missing or empty. "
+            "Set it in the environment.\n"
+        )
+        assert len(router.calls) == 0
+
+
+@pytest.mark.parametrize(
+    argnames="failure",
+    argvalues=["api", "timeout", "invalid-response", "invalid-json"],
+)
+def test_create_failures_without_retry(failure: str) -> None:
+    """Never retry creation or expose response bodies in errors."""
+    with respx.mock(assert_all_mocked=True) as router:
+        route = router.post(url=f"{_URL}/variants")
+        if failure == "api":
+            _ = route.respond(status_code=503, json={"message": "secret"})
+            message = "CoderPad rejected the variant creation (HTTP 503)."
+        elif failure == "timeout":
+            _ = route.mock(side_effect=httpx.ReadTimeout(message="secret"))
+            message = (
+                "Could not reach CoderPad. Check your network connection."
+            )
+        else:
+            if failure == "invalid-json":
+                _ = route.respond(status_code=200, text="secret")
+            else:
+                _ = route.respond(status_code=200, json={"id": "secret"})
+            message = (
+                "CoderPad returned an invalid variant response. "
+                "Creation may have succeeded; check the question "
+                "before retrying."
+            )
+        result = CliRunner().invoke(
+            cli=main,
+            args=[
+                "questions",
+                "variants",
+                "create",
+                "123456",
+                "--language=python3",
+            ],
+            env={"CODERPAD_API_KEY": "synthetic-secret"},
+        )
+        assert result.exit_code == 1
+        assert result.stdout == ""
+        assert result.stderr == f"Error: {message}\n"
+        assert route.call_count == 1
+        assert len(router.calls) == 1
+
+
+@pytest.mark.parametrize(argnames="dry_run", argvalues=[False, True])
+@pytest.mark.parametrize(argnames="mode", argvalues=["file", "directory"])
+def test_create_invalid_utf8(
+    tmp_path: Path,
+    mode: str,
+    *,
+    dry_run: bool,
+) -> None:
+    """Reject binary creation sources before any network mutation."""
+    source = tmp_path / "binary"
+    _ = source.write_bytes(data=b"\xff")
+    path = source if mode == "file" else tmp_path
+    with respx.mock(assert_all_mocked=True) as router:
+        result = CliRunner().invoke(
+            cli=main,
+            args=[
+                "questions",
+                "variants",
+                "create",
+                "123456",
+                "--language=multifile_python",
+                f"--{mode}",
+                str(object=path),
+                *(["--dry-run"] if dry_run else []),
+            ],
+            env={"CODERPAD_API_KEY": None},
+        )
+        assert result.exit_code == 1
+        assert result.stdout == ""
+        assert result.stderr == (
+            "Error: Source text and .gitignore files must be valid UTF-8.\n"
+        )
+        assert len(router.calls) == 0
