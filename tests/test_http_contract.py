@@ -24,6 +24,7 @@ from coderpad_cli import main
 from tests.test_cli import write_files
 
 _URL = "https://app.coderpad.io/api/questions/123456"
+_VARIANT_URL = f"{_URL}/variants/7"
 _CONTRACT = Path(__file__).parents[1] / "spec" / "openapi.json"
 
 
@@ -227,8 +228,9 @@ def test_directory_over_default_httpx(tmp_path: Path) -> None:
         HTTPStatus.SERVICE_UNAVAILABLE,
     ],
 )
+@pytest.mark.parametrize(argnames="variant", argvalues=[False, True])
 def test_api_failure_over_default_httpx(
-    status: HTTPStatus, tmp_path: Path
+    status: HTTPStatus, tmp_path: Path, *, variant: bool
 ) -> None:
     """HTTP errors retain SDK semantics and never disclose response
     secrets.
@@ -236,7 +238,7 @@ def test_api_failure_over_default_httpx(
     source = tmp_path / "starter.py"
     _ = source.write_text(data="pass")
     with respx.mock(assert_all_mocked=True) as router:
-        route = router.put(url=_URL).respond(
+        route = router.put(url=_VARIANT_URL if variant else _URL).respond(
             status_code=status.value,
             json={"status": "ERROR", "message": "synthetic-secret"},
         )
@@ -248,6 +250,7 @@ def test_api_failure_over_default_httpx(
                 "123456",
                 "--file",
                 str(object=source),
+                *(["--variant-id", "7"] if variant else []),
             ],
             env={"CODERPAD_API_KEY": "synthetic-secret"},
         )
@@ -259,12 +262,13 @@ def test_api_failure_over_default_httpx(
         assert route.call_count == 1
 
 
-def test_timeout_over_default_httpx(tmp_path: Path) -> None:
+@pytest.mark.parametrize(argnames="variant", argvalues=[False, True])
+def test_timeout_over_default_httpx(tmp_path: Path, *, variant: bool) -> None:
     """The default SDK transport's network failures are handled safely."""
     source = tmp_path / "starter.py"
     _ = source.write_text(data="pass")
     with respx.mock(assert_all_mocked=True) as router:
-        route = router.put(url=_URL).mock(
+        route = router.put(url=_VARIANT_URL if variant else _URL).mock(
             side_effect=httpx.ReadTimeout(message="synthetic-secret")
         )
         result = CliRunner().invoke(
@@ -275,6 +279,7 @@ def test_timeout_over_default_httpx(tmp_path: Path) -> None:
                 "123456",
                 "--file",
                 str(object=source),
+                *(["--variant-id", "7"] if variant else []),
             ],
             env={"CODERPAD_API_KEY": "synthetic-secret"},
         )
@@ -286,7 +291,10 @@ def test_timeout_over_default_httpx(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize(argnames="mode", argvalues=["directory", "file"])
-def test_offline_dry_run_at_http_boundary(mode: str, tmp_path: Path) -> None:
+@pytest.mark.parametrize(argnames="variant", argvalues=[False, True])
+def test_offline_dry_run_at_http_boundary(
+    mode: str, tmp_path: Path, *, variant: bool
+) -> None:
     """With no mock routes or key, dry runs still make zero requests."""
     source = tmp_path / "starter.py"
     _ = source.write_text(data="pass")
@@ -301,10 +309,189 @@ def test_offline_dry_run_at_http_boundary(mode: str, tmp_path: Path) -> None:
                 f"--{mode}",
                 str(object=path),
                 "--dry-run",
+                *(["--variant-id", "7"] if variant else []),
             ],
             env={"CODERPAD_API_KEY": None},
         )
         assert result.exit_code == 0, result.output
+        target = "123456 variant 7" if variant else "123456"
+        selected = "starter.py" if mode == "directory" else str(object=source)
+        assert result.output == (
+            "Would update https://app.coderpad.io/dashboard/questions/all/"
+            f"{target}\n  {selected}\n"
+        )
+        assert len(router.calls) == 0
+
+
+def _variant_response() -> dict[str, JSONValue]:
+    """Use the SDK contract's project-variant response example."""
+    return {
+        **_contract_section(
+            "paths",
+            "/api/questions/{question_id}/variants/{variant_id}",
+            "put",
+            "responses",
+            "200",
+            "content",
+            "application/json",
+            "example",
+        ),
+        "question_id": 123456,
+    }
+
+
+def _validate_variant_request(
+    request: httpx.Request, expected: dict[str, JSONValue]
+) -> None:
+    """Check the JSON contract and the exact starter-only update."""
+    schema = _contract_section(
+        "paths",
+        "/api/questions/{question_id}/variants/{variant_id}",
+        "put",
+        "requestBody",
+        "content",
+        "application/json",
+        "schema",
+    )
+    validator = _validator(
+        schema={**schema, "components": _contract_section("components")}
+    )
+    body = dict[str, JSONValue](json.loads(s=request.content))
+    validator.validate(instance=body)
+    assert body == expected
+    assert request.method == "PUT"
+    assert str(object=request.url) == _VARIANT_URL
+    assert request.headers["content-type"] == "application/json"
+    assert request.headers["authorization"] == 'Token token="synthetic-secret"'
+
+
+@pytest.mark.parametrize(
+    argnames="contents",
+    argvalues=["", "\ufeff# input-begin\r\nπ = 3  \r\n\r\n", "pass"],
+)
+def test_variant_file(contents: str, tmp_path: Path) -> None:
+    """Preserve exact file text without touching variant metadata."""
+    source = tmp_path / "starter.py"
+    _ = source.write_bytes(data=contents.encode(encoding="utf-8"))
+
+    def update(request: httpx.Request) -> httpx.Response:
+        """Accept only a contents update for the selected variant."""
+        _validate_variant_request(
+            request=request, expected={"contents": contents}
+        )
+        return httpx.Response(
+            status_code=HTTPStatus.OK,
+            json={**_variant_response(), "language": "python"},
+        )
+
+    with respx.mock(assert_all_mocked=True) as router:
+        route = router.put(url=_VARIANT_URL).mock(side_effect=update)
+        result = CliRunner().invoke(
+            cli=main,
+            args=[
+                "questions",
+                "upload",
+                "123456",
+                "--variant-id",
+                "7",
+                "--file",
+                str(object=source),
+            ],
+            env={"CODERPAD_API_KEY": "synthetic-secret"},
+        )
+        assert result.exit_code == 0, result.output
+        assert route.call_count == 1
+        assert len(router.calls) == 1
+    assert result.output == (
+        "Updated https://app.coderpad.io/dashboard/questions/all/"
+        "123456 variant 7\n"
+    )
+
+
+def test_variant_directory(tmp_path: Path) -> None:
+    """Send selected UTF-8 project files as JSON rather than a ZIP."""
+    write_files(
+        root=tmp_path,
+        files={
+            ".gitignore": b"*.tmp\n",
+            ".git/config": b"private",
+            "main.py": b"pass\r\n",
+            "nested/empty.py": b"",
+            "nested/prompt.tsx": "\ufeffπ = 3  \r\n".encode(encoding="utf-8"),
+            "ignored.tmp": b"ignored",
+            "bundle.zip": b"excluded",
+        },
+    )
+    expected: dict[str, JSONValue] = {
+        "file_contents": [
+            {"path": ".gitignore", "contents": "*.tmp\n"},
+            {"path": "main.py", "contents": "pass\r\n"},
+            {"path": "nested/empty.py", "contents": ""},
+            {"path": "nested/prompt.tsx", "contents": "\ufeffπ = 3  \r\n"},
+        ],
+    }
+
+    def update(request: httpx.Request) -> httpx.Response:
+        """Accept only project files, leaving environment and code omitted."""
+        _validate_variant_request(request=request, expected=expected)
+        return httpx.Response(
+            status_code=HTTPStatus.OK, json=_variant_response()
+        )
+
+    with respx.mock(assert_all_mocked=True) as router:
+        route = router.put(url=_VARIANT_URL).mock(side_effect=update)
+        result = CliRunner().invoke(
+            cli=main,
+            args=[
+                "questions",
+                "upload",
+                "123456",
+                "--variant-id",
+                "7",
+                "--directory",
+                str(object=tmp_path),
+                "--exclude",
+                "*.zip",
+            ],
+            env={"CODERPAD_API_KEY": "synthetic-secret"},
+        )
+        assert result.exit_code == 0, result.output
+        assert route.call_count == 1
+        assert len(router.calls) == 1
+    assert result.output == (
+        "Updated https://app.coderpad.io/dashboard/questions/all/"
+        "123456 variant 7\n"
+    )
+
+
+@pytest.mark.parametrize(argnames="dry_run", argvalues=[False, True])
+def test_variant_directory_rejects_binary(
+    tmp_path: Path, *, dry_run: bool
+) -> None:
+    """Reject non-UTF-8 variant files even in credential-free dry runs."""
+    write_files(
+        root=tmp_path,
+        files={"valid.py": b"pass", "nested/invalid.bin": b"\xff"},
+    )
+    with respx.mock(assert_all_mocked=True, assert_all_called=False) as router:
+        result = CliRunner().invoke(
+            cli=main,
+            args=[
+                "questions",
+                "upload",
+                "123456",
+                "--variant-id",
+                "7",
+                "--directory",
+                str(object=tmp_path),
+                *(["--dry-run"] if dry_run else []),
+            ],
+            env={"CODERPAD_API_KEY": None},
+        )
+        assert result.exit_code == 1
+        assert result.output == (
+            "Error: Source text and .gitignore files must be valid UTF-8.\n"
+        )
         assert len(router.calls) == 0
 
 

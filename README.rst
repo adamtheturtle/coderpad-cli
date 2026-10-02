@@ -46,6 +46,30 @@ Errors exit nonzero.
 API response bodies and credentials are never printed.
 Uploads retain the SDK's retry behavior.
 
+Question variants
+-----------------
+
+To update an existing variant rather than the question's starter code, add
+``--variant-id``:
+
+.. code-block:: console
+
+   coderpad questions upload 123456 --variant-id 7 --directory ./starter --exclude '*.zip' --dry-run
+   coderpad questions upload 123456 --variant-id 7 --directory ./starter --exclude '*.zip'
+   coderpad questions upload 123456 --variant-id 8 --file ./starter.py
+
+Question and variant IDs must be positive decimal integers.
+The variant must already exist.
+Only its starter code changes; the question metadata, other variants, selected
+language or project template, and solution are preserved.
+Directory uploads replace the variant's files using the SDK's JSON API.
+Every selected file must be UTF-8, including during a dry run.
+Exclude binary assets explicitly or use a normal question upload, which
+continues to support binary files through the SDK's ZIP importer.
+File text is preserved exactly for both variant upload modes.
+Dry runs identify the variant and selected files without requiring a key or
+making a request.
+
 Directory selection
 -------------------
 
@@ -83,7 +107,9 @@ Directory selection
   Special files are rejected.
   Empty selections fail.
   File bytes are copied to a temporary directory, and the SDK independently
-  validates and serializes that directory using its ZIP importer.
+  validates and serializes that directory using its ZIP importer for normal
+  question uploads.
+  Variant uploads send the staged files as UTF-8 JSON content instead.
 
 Development and distribution
 ----------------------------

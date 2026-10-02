@@ -24,6 +24,12 @@ Keep builds and the upload-on-push workflow in that repository, including its
 secret and dependency group.
 The workflow continues calling the shell script after the required builds.
 
+For existing question variants, add ``--variant-id VARIANT_ID`` to the upload
+command.
+Keep variant IDs and their source paths in the consumer's shell script too.
+Use ``--dry-run`` to validate UTF-8 project files before enabling variant
+uploads.
+
 The old snippet operation removes documentation slice markers.
 It also trims outer whitespace and appends a newline.
 The public ``--file`` option preserves text exactly.
