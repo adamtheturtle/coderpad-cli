@@ -1,37 +1,46 @@
-Question upload contract fixture
-================================
+Question upload contract
+========================
 
-``question-upload.openapi.json`` is a reduced snapshot of ``openapi.json`` from
-``coderpad-py`` release ``2026.10.01.1``, commit
-``d36db633f46e068ea33370d234d76b8cbecf8cde``:
+Contract tests read the full ``spec/openapi.json`` from the pinned ``spec`` Git
+submodule, rather than maintaining a reduced copy here.
+The canonical specification is maintained in `coderpad-openapi`_.
+The Git tree records the exact commit used by this consumer.
+The initial pin is ``e1d67d75cc8fde40ee1f0f382793b2172302c6e3``.
+Its ``QuestionForm`` schema is unchanged from the previous fixture.
+The full document also supplies the question variant schemas.
 
-`Pinned OpenAPI source`_
+.. _coderpad-openapi: https://github.com/adamtheturtle/coderpad-openapi
 
-.. _Pinned OpenAPI source:
-   https://github.com/adamtheturtle/coderpad/blob/
-   d36db633f46e068ea33370d234d76b8cbecf8cde/openapi.json
+Prepare the specification before running tests:
 
-Source SHA-256:
-``7e0533867d8ad85b0725e2c45b84f0085ec907e4930eea94a8c34f51440baf2b``.
+.. code-block:: shell
 
-The retained data is the question PUT operation's request body, its synthetic
-success response, and the referenced ``QuestionForm`` component.
-These sections are unchanged; only unrelated operations, examples, headers, and
-prose are omitted.
-The fixture's title and version identify its purpose and SDK baseline.
+   git submodule update --init spec
 
-The canonical specification remains in the SDK repository.
-Refresh this fixture from a reviewed SDK release when its upload contract
-changes.
-Review that diff alongside the SDK dependency update.
-Tests never download the spec and never contact a real CoderPad server.
+To update it, first merge contract changes in the shared repository, then check
+out a reviewed full commit SHA in ``spec`` and commit the new Git pin:
+
+.. code-block:: shell
+
+   git -C spec fetch origin
+   git -C spec checkout REVIEWED_COMMIT_SHA
+   git add spec
+   uv run --locked pytest tests/test_http_contract.py --no-cov
+
+Review the upstream contract diff alongside the relevant SDK dependency changes
+before committing the pin.
+Never edit a separate contract copy in this repository.
+CI initializes the submodule during checkout.
+Tests never download the specification or contact a real CoderPad server.
+Source distributions include the document and its MIT license so their contract
+tests do not need Git metadata.
 
 The contract checks request shape.
 Synthetic state in the tests checks that starter code changes while existing
 metadata is preserved.
 Neither is a claim that a mock independently proves undocumented live API
 behavior.
+Keep those assertions here, not in the shared specification.
 
-This test data is derived from the SDK repository under its MIT license,
-Copyright (c) Adam Dangoor.
-The license is reproduced at the repository root.
+The shared repository preserves the original MIT license and attribution in
+``spec/LICENSE``.

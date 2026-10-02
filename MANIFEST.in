@@ -9,5 +9,8 @@ recursive-include .github/workflows *.yml
 include Dockerfile flake.nix flake.lock uv.lock
 recursive-include bin *.py
 recursive-include tests *.py *.json *.rst *.txt
+include spec/openapi.json spec/LICENSE spec/README.rst
+prune spec/.github
+exclude .gitmodules
 include .dockerignore
 include .gitattributes
