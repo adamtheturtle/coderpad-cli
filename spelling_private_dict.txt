@@ -46,6 +46,7 @@ retryable
 scm
 setuptools
 src
+submodule
 symlink
 symlinks
 uploader

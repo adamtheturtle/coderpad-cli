@@ -13,6 +13,7 @@ The SDK baseline is the released ``coderpad-py==2026.10.1.1`` in ``uv.lock``.
 
 .. code-block:: shell
 
+   git submodule update --init spec
    uv sync --locked --group dev
    uv run pytest
    uv run prek run --all-files
@@ -29,19 +30,19 @@ Synthetic transports assert the exact mutation payload, including the absence
 of title, description, language, solution, and instruction fields.
 Additional contract tests exercise the SDK's default HTTPX transport through
 RESPX.
-They validate form and multipart fields against a reduced OpenAPI fixture from
-the SDK.
+They validate form and multipart fields against the pinned shared OpenAPI
+specification in ``spec/openapi.json``.
 They also inspect the SDK-generated ZIP bytes and verify that metadata is
 absent from the outgoing update.
 The mock rejects every unregistered request.
 No SDK methods are replaced.
 See ``tests/fixtures/README.rst`` for the fixture's source and update policy.
 
-The SDK remains the canonical owner of its OpenAPI contract.
-A separate spec repository would add a release and synchronization boundary
-without improving these upload tests.
-Consider extracting it if several independently versioned clients need a shared
-contract with its own maintainers and release policy.
+The specification is owned by ``adamtheturtle/coderpad-openapi``.
+The ``spec`` Git submodule pins an immutable commit from that repository.
+Repeat ``git submodule update --init spec`` after pulling a pin update.
+Tests only read the local document and never download it.
+Installed CLI commands do not depend on the submodule.
 
 Add a Towncrier feature or bugfix fragment for each user-visible change.
 

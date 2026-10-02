@@ -24,7 +24,7 @@ from coderpad_cli import main
 from tests.test_cli import write_files
 
 _URL = "https://app.coderpad.io/api/questions/123456"
-_CONTRACT = Path(__file__).parent / "fixtures" / "question-upload.openapi.json"
+_CONTRACT = Path(__file__).parents[1] / "spec" / "openapi.json"
 
 
 type JSONValue = (
@@ -33,7 +33,7 @@ type JSONValue = (
 
 
 def _contract_section(*keys: str) -> dict[str, JSONValue]:
-    """Read a dictionary section from the bundled contract fixture."""
+    """Read a dictionary section from the pinned shared contract."""
     value: JSONValue = dict[str, JSONValue](
         json.loads(s=_CONTRACT.read_text(encoding="utf-8")),
     )
@@ -87,7 +87,9 @@ def _fields(request: httpx.Request) -> dict[str, str | bytes]:
 def _validate_contract(
     request: httpx.Request, fields: dict[str, str | bytes]
 ) -> None:
-    """Validate fields and media type against the SDK's request schema."""
+    """Validate fields and media type against the shared request
+    schema.
+    """
     media_definitions = _contract_section(
         "paths",
         "/api/questions/{id}",

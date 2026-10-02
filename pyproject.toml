@@ -175,7 +175,7 @@ verbose = 2
 omit-covered-files = true
 
 [tool.check-manifest]
-ignore = [ "src/coderpad_cli/_version.py" ]
+ignore = [ ".gitmodules", "spec/.github/**", "src/coderpad_cli/_version.py" ]
 
 [tool.vulture]
 exclude = [ ".venv", "build", "dist", "doccmd_", "src/coderpad_cli/_version.py" ]
