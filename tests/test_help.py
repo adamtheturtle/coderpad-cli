@@ -21,6 +21,7 @@ from coderpad_cli import main
         ["questions", "variants", "list"],
         ["questions", "variants", "get"],
         ["questions", "variants", "delete"],
+        ["questions", "variants", "update"],
     ],
     ids=[
         "root",
@@ -31,6 +32,7 @@ from coderpad_cli import main
         "variants-list",
         "variants-get",
         "variants-delete",
+        "variants-update",
     ],
 )
 def test_help(
