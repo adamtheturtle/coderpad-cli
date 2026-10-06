@@ -5,6 +5,24 @@ Releases are assembled from ``newsfragments/`` using Towncrier.
 
 .. towncrier release notes start
 
+2026.10.6 (2026-10-06)
+----------------------
+
+Features
+~~~~~~~~
+
+- Add ``coderpad questions variants create`` with optional starter files, JSON
+  output containing the new variant ID, and offline dry runs.
+  (#22)
+- Add question-scoped variant list, get, and delete commands with JSON output.
+  Deletion supports a network-free dry run and is never retried.
+  (#27)
+- Edit variant solutions, environments, structured files, and explicit resets
+  with offline JSON plans.
+  Variant creation also accepts solution files and structured project overlays.
+  (#28)
+
+
 2026.10.2 (2026-10-02)
 ----------------------
 

@@ -1,2 +1,0 @@
-Add ``coderpad questions variants create`` with optional starter files, JSON
-output containing the new variant ID, and offline dry runs.

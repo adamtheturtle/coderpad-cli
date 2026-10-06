@@ -1,3 +1,0 @@
-Edit variant solutions, environments, structured files, and explicit resets
-with offline JSON plans.
-Variant creation also accepts solution files and structured project overlays.
