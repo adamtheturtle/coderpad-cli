@@ -16,6 +16,12 @@ from coderpad.types import QuestionVariantFileContent, QuestionVariantUnset
 
 from coderpad_cli._sources import PreparedSource, prepare_source
 from coderpad_cli._variant_commands import register_variant_commands
+from coderpad_cli._variant_update import (
+    VariantCreation,
+    optional_overlay,
+    optional_text,
+    register_variant_update,
+)
 
 
 def create_cli(*, transport: Transport | None = None) -> click.Group:
@@ -107,6 +113,16 @@ def create_cli(*, transport: Transport | None = None) -> click.Group:
         help="UTF-8 starter code file. An empty file creates blank code.",
     )
     @click.option(
+        "--solution-file",
+        type=click.Path(path_type=Path, readable=False),
+        help="UTF-8 reference solution.",
+    )
+    @click.option(
+        "--file-contents-json",
+        type=click.Path(path_type=Path, readable=False),
+        help="Structured project overlay with hidden/deleted flags.",
+    )
+    @click.option(
         "--exclude",
         multiple=True,
         help="Additional Gitignore pattern at the upload root. Repeatable.",
@@ -118,11 +134,13 @@ def create_cli(*, transport: Transport | None = None) -> click.Group:
     )
     def create(  # noqa: PLR0913
         question_id: str,
+        *,
+        solution_file: Path | None,
+        file_contents_json: Path | None,
         language: str,
         directory: Path | None,
         source_file: Path | None,
         exclude: tuple[str, ...],
-        *,
         dry_run: bool,
     ) -> None:
         """Create a variant and print its question and variant IDs as JSON.
@@ -135,6 +153,14 @@ def create_cli(*, transport: Transport | None = None) -> click.Group:
         if language == "" or language.strip() != language:
             msg = "Provide a nonempty language or project-template slug."
             raise click.BadParameter(message=msg, param_hint="--language")
+        if file_contents_json is not None and (
+            directory is not None or source_file is not None
+        ):
+            msg = (
+                "--file-contents-json cannot be combined "
+                "with --file or --directory."
+            )
+            raise click.UsageError(message=msg)
         prepared: AbstractContextManager[PreparedSource]
         if directory is not None or source_file is not None:
             _validate_upload(
@@ -161,8 +187,12 @@ def create_cli(*, transport: Transport | None = None) -> click.Group:
                 ),
             )
         _create_variant(
-            question_id=question_id,
-            language=language,
+            creation=VariantCreation(
+                question_id=question_id,
+                language=language,
+                solution_file=solution_file,
+                file_contents_json=file_contents_json,
+            ),
             prepared=prepared,
             dry_run=dry_run,
             transport=transport,
@@ -170,6 +200,13 @@ def create_cli(*, transport: Transport | None = None) -> click.Group:
 
     _ = variants.command()(create)
     register_variant_commands(
+        group=variants,
+        transport=transport,
+        validate_id=_validate_id,
+        api_key=_api_key,
+        request_errors=_request_errors,
+    )
+    register_variant_update(
         group=variants,
         transport=transport,
         validate_id=_validate_id,
@@ -305,8 +342,7 @@ def _upload(
 
 
 def _create_variant(
-    question_id: str,
-    language: str,
+    creation: VariantCreation,
     prepared: AbstractContextManager[PreparedSource],
     *,
     dry_run: bool,
@@ -314,42 +350,46 @@ def _create_variant(
 ) -> None:
     """Prepare an optional source and create exactly one variant."""
     with _request_errors(operation="variant creation"), prepared as source:
-        file_contents = _variant_files(source=source)
+        file_contents: list[QuestionVariantFileContent] | str | None = (
+            _variant_files(source=source)
+        )
+        overlay = optional_overlay(path=creation.file_contents_json)
+        solution = optional_text(path=creation.solution_file)
+        if overlay is not None:
+            file_contents = overlay.json
         if dry_run:
-            click.echo(
-                message=json.dumps(
-                    obj={
-                        "operation": "create_variant",
-                        "question_id": int(question_id),
-                        "language": language,
-                        "files": source.files,
-                    }
-                )
-            )
+            plan: dict[str, object] = {
+                "operation": "create_variant",
+                "question_id": int(creation.question_id),
+                "language": creation.language,
+                "files": source.files if overlay is None else overlay.paths,
+            }
+            if creation.solution_file is not None:
+                plan["solution_file"] = str(object=creation.solution_file)
+            click.echo(message=json.dumps(obj=plan))
             return
         with CoderPad(api_key=_api_key(), transport=transport) as client:
             try:
                 variant = client.questions.variants.create(
-                    question_id=question_id,
-                    language=language,
-                    contents=(
-                        source.contents
-                        if source.contents is not None
-                        else QuestionVariantUnset.OMITTED
-                    ),
+                    question_id=creation.question_id,
+                    language=creation.language,
+                    solution=solution,
+                    contents=source.contents
+                    if source.contents is not None
+                    else QuestionVariantUnset.OMITTED,
                     file_contents=file_contents,
                 )
             except ValueError:
                 msg = (
                     "CoderPad returned an invalid variant response. "
-                    "Creation may have succeeded; check the question "
+                    "Creation may have succeeded. Check the question "
                     "before retrying."
                 )
                 raise click.ClickException(message=msg) from None
         click.echo(
             message=json.dumps(
                 obj={
-                    "question_id": int(question_id),
+                    "question_id": int(creation.question_id),
                     "variant_id": variant.id,
                 }
             )

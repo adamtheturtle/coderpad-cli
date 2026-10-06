@@ -7,9 +7,15 @@ Usage: coderpad questions variants create [OPTIONS] QUESTION_ID
   creation is never retried.
 
 Options:
-  --language TEXT   Language or project-template slug.  [required]
-  --directory PATH  UTF-8 project directory to layer over the template.
-  --file PATH       UTF-8 starter code file. An empty file creates blank code.
-  --exclude TEXT    Additional Gitignore pattern at the upload root. Repeatable.
-  --dry-run         Print a JSON plan without credentials or network access.
-  --help            Show this message and exit.
+  --language TEXT            Language or project-template slug.  [required]
+  --directory PATH           UTF-8 project directory to layer over the template.
+  --file PATH                UTF-8 starter code file. An empty file creates
+                             blank code.
+  --solution-file PATH       UTF-8 reference solution.
+  --file-contents-json PATH  Structured project overlay with hidden/deleted
+                             flags.
+  --exclude TEXT             Additional Gitignore pattern at the upload root.
+                             Repeatable.
+  --dry-run                  Print a JSON plan without credentials or network
+                             access.
+  --help                     Show this message and exit.

@@ -734,7 +734,7 @@ def test_create_failures_without_retry(failure: str) -> None:
                 _ = route.respond(status_code=200, json={"id": "secret"})
             message = (
                 "CoderPad returned an invalid variant response. "
-                "Creation may have succeeded; check the question "
+                "Creation may have succeeded. Check the question "
                 "before retrying."
             )
         result = CliRunner().invoke(
@@ -933,3 +933,313 @@ def test_variant_discovery_malformed_response_is_safe(command: str) -> None:
             == "Error: CoderPad returned an invalid variant response.\n"
         )
         assert route.call_count == 1
+
+
+def _variant_edit_case(
+    *, mode: str, tmp_path: Path
+) -> tuple[list[str], dict[str, JSONValue], list[JSONValue], str, str | None]:
+    """Prepare an edit and its independently expected wire attributes."""
+    arguments = ["questions", "variants", "update", "123456", "7"]
+    expected: dict[str, JSONValue] = {}
+    paths: list[JSONValue] = []
+    action = "omit"
+    kind: str | None = None
+    if mode in {"file", "blank", "language-source"}:
+        contents = "" if mode == "blank" else "new code\r\n"
+        path = tmp_path / "starter.py"
+        _ = path.write_bytes(data=contents.encode(encoding="utf-8"))
+        arguments.extend(["--file", str(object=path)])
+        expected["contents"] = contents
+        paths = [str(object=path)]
+        action, kind = "replace", "single_file"
+    elif mode == "directory":
+        path = tmp_path / "project"
+        write_files(
+            root=path,
+            files={"main.py": b"new code\r\n", "ignored.tmp": b"ignore"},
+        )
+        arguments.extend(
+            ["--directory", str(object=path), "--exclude", "*.tmp"]
+        )
+        expected["file_contents"] = [
+            {"path": "main.py", "contents": "new code\r\n"}
+        ]
+        paths = ["main.py"]
+        action, kind = "replace", "project"
+    elif mode in {"overlay", "overlay-empty"}:
+        entries: list[dict[str, JSONValue]] = (
+            []
+            if mode == "overlay-empty"
+            else [
+                {
+                    "path": "hidden.py",
+                    "contents": "secret",
+                    "hidden": True,
+                    "deleted": False,
+                },
+                {"path": "old.py", "deleted": True},
+            ]
+        )
+        path = tmp_path / "files.json"
+        _ = path.write_text(data=json.dumps(obj=entries), encoding="utf-8")
+        arguments.extend(["--file-contents-json", str(object=path)])
+        expected["file_contents"] = json.dumps(obj=entries)
+        paths = [] if mode == "overlay-empty" else ["hidden.py", "old.py"]
+        action, kind = (
+            ("reset" if mode == "overlay-empty" else "replace"),
+            "project",
+        )
+    elif mode == "reset-code":
+        arguments.append("--reset-code")
+        expected["contents"] = None
+        action, kind = "reset", "single_file"
+    elif mode == "reset-project":
+        arguments.append("--reset-project")
+        expected["file_contents"] = list[JSONValue]()
+        action, kind = "reset", "project"
+    solution_path = tmp_path / "solution.py"
+    if mode == "solution":
+        _ = solution_path.write_bytes(data=b"reference\r\n")
+        arguments.extend(["--solution-file", str(object=solution_path)])
+        expected["solution"] = "reference\r\n"
+    if mode in {"language", "language-source"}:
+        arguments.extend(["--language", "python3"])
+        expected["language"] = "python3"
+    return arguments, expected, paths, action, kind
+
+
+@pytest.mark.parametrize(
+    argnames="mode",
+    argvalues=[
+        "file",
+        "blank",
+        "directory",
+        "overlay",
+        "overlay-empty",
+        "reset-code",
+        "reset-project",
+        "solution",
+        "language",
+        "language-source",
+    ],
+)
+@pytest.mark.parametrize(argnames="dry_run", argvalues=[False, True])
+def test_explicit_variant_update(
+    mode: str, tmp_path: Path, *, dry_run: bool
+) -> None:
+    """Edits distinguish omission, blank replacements, and explicit resets."""
+    arguments, expected, paths, action, kind = _variant_edit_case(
+        mode=mode, tmp_path=tmp_path
+    )
+    solution_path = tmp_path / "solution.py"
+    if dry_run:
+        arguments.append("--dry-run")
+    with respx.mock(assert_all_called=False) as router:
+        route = router.put(url=_VARIANT_URL).mock(
+            return_value=httpx.Response(
+                status_code=200, json=_variant_response()
+            )
+        )
+        result = CliRunner().invoke(
+            cli=main,
+            args=arguments,
+            env={"CODERPAD_API_KEY": None if dry_run else "synthetic-secret"},
+        )
+        assert result.exit_code == 0, result.output
+        if dry_run:
+            plan: dict[str, JSONValue] = {
+                "operation": "update_variant",
+                "question_id": 123456,
+                "variant_id": 7,
+                "content": {"action": action, "kind": kind, "files": paths},
+            }
+            if mode in {"language", "language-source"}:
+                plan["language"] = "python3"
+            if mode == "solution":
+                plan["solution_file"] = str(object=solution_path)
+            assert json.loads(s=result.stdout) == plan
+            assert route.call_count == 0
+        else:
+            assert json.loads(s=route.calls.last.request.content) == expected
+            assert (
+                route.calls.last.request.headers["Authorization"]
+                == 'Token token="synthetic-secret"'
+            )
+            assert json.loads(s=result.stdout) == {
+                "question_id": 123456,
+                "variant_id": 7,
+            }
+            assert route.call_count == 1
+
+
+@pytest.mark.parametrize(argnames="dry_run", argvalues=[False, True])
+def test_variant_creation_with_solution_and_overlay(
+    tmp_path: Path, *, dry_run: bool
+) -> None:
+    """Creation retains solution bytes and supplied overlay flags."""
+    solution = tmp_path / "solution.py"
+    overlay = tmp_path / "overlay.json"
+    _ = solution.write_bytes(data=b"reference\r\n")
+    entries = [
+        {"path": "hidden.py", "hidden": True},
+        {"path": "old.py", "deleted": True},
+    ]
+    _ = overlay.write_text(data=json.dumps(obj=entries), encoding="utf-8")
+    with respx.mock(assert_all_called=False) as router:
+        route = router.post(url=f"{_URL}/variants").mock(
+            return_value=httpx.Response(
+                status_code=200, json=_variant_response()
+            )
+        )
+        result = CliRunner().invoke(
+            cli=main,
+            args=[
+                "questions",
+                "variants",
+                "create",
+                "123456",
+                "--language",
+                "multifile_python",
+                "--solution-file",
+                str(object=solution),
+                "--file-contents-json",
+                str(object=overlay),
+                *(["--dry-run"] if dry_run else []),
+            ],
+            env={"CODERPAD_API_KEY": None if dry_run else "synthetic-secret"},
+        )
+        assert result.exit_code == 0, result.output
+        if dry_run:
+            assert json.loads(s=result.stdout) == {
+                "operation": "create_variant",
+                "question_id": 123456,
+                "language": "multifile_python",
+                "files": ["hidden.py", "old.py"],
+                "solution_file": str(object=solution),
+            }
+            assert route.call_count == 0
+        else:
+            assert json.loads(s=route.calls.last.request.content) == {
+                "language": "multifile_python",
+                "solution": "reference\r\n",
+                "file_contents": json.dumps(obj=entries),
+            }
+            assert route.call_count == 1
+
+
+@pytest.mark.parametrize(
+    argnames="options",
+    argvalues=[
+        [],
+        ["--language="],
+        ["--language= "],
+        ["--language= python3"],
+        ["--file", "file", "--directory", "directory"],
+        ["--file", "file", "--file-contents-json", "files.json"],
+        ["--reset-code", "--reset-project"],
+        ["--reset-code", "--file", "file"],
+        ["--language", "python3", "--exclude", "*.tmp"],
+    ],
+)
+def test_invalid_variant_edit_options(options: list[str]) -> None:
+    """Conflicting options fail before file reads, credentials, or
+    requests.
+    """
+    with respx.mock() as router:
+        result = CliRunner().invoke(
+            cli=main,
+            args=["questions", "variants", "update", "123456", "7", *options],
+            env={"CODERPAD_API_KEY": None},
+        )
+        assert result.exit_code == USAGE_ERROR
+        assert len(router.calls) == 0
+        assert "CODERPAD_API_KEY" not in result.output
+
+
+@pytest.mark.parametrize(argnames="command", argvalues=["create", "update"])
+@pytest.mark.parametrize(
+    argnames="text",
+    argvalues=[
+        "not JSON synthetic-secret",
+        '{"path":"synthetic-secret"}',
+        '[{"path":1}]',
+    ],
+)
+def test_bad_variant_overlay_is_safe(
+    command: str, text: str, tmp_path: Path
+) -> None:
+    """Malformed local JSON is rejected without quoting its contents."""
+    path = tmp_path / "files.json"
+    _ = path.write_text(data=text, encoding="utf-8")
+    arguments = ["questions", "variants", command, "123456"]
+    arguments.extend(
+        ["--language", "python3"] if command == "create" else ["7"]
+    )
+    with respx.mock() as router:
+        result = CliRunner().invoke(
+            cli=main,
+            args=[*arguments, "--file-contents-json", str(object=path)],
+            env={"CODERPAD_API_KEY": None},
+        )
+        assert result.exit_code == USAGE_ERROR
+        assert (
+            "Project file JSON must be an array of valid file entries."
+            in result.output
+        )
+        assert "synthetic-secret" not in result.output
+        assert len(router.calls) == 0
+
+
+@pytest.mark.parametrize(
+    argnames="status", argvalues=[HTTPStatus.OK, HTTPStatus.FORBIDDEN]
+)
+def test_variant_update_errors_are_safe(status: HTTPStatus) -> None:
+    """Malformed responses and rejected writes never retry or expose
+    data.
+    """
+    with respx.mock() as router:
+        route = router.put(url=_VARIANT_URL).mock(
+            return_value=httpx.Response(
+                status_code=status, json={"id": "synthetic-secret"}
+            )
+        )
+        result = CliRunner().invoke(
+            cli=main,
+            args=[
+                "questions",
+                "variants",
+                "update",
+                "123456",
+                "7",
+                "--language",
+                "python3",
+            ],
+            env={"CODERPAD_API_KEY": "synthetic-secret"},
+        )
+        assert result.exit_code == 1
+        assert "synthetic-secret" not in result.output
+        assert route.call_count == 1
+
+
+def test_creation_rejects_conflicting_overlay() -> None:
+    """An overlay cannot be combined with a file or directory on
+    creation.
+    """
+    result = CliRunner().invoke(
+        cli=main,
+        args=[
+            "questions",
+            "variants",
+            "create",
+            "123456",
+            "--language",
+            "python3",
+            "--file-contents-json",
+            "files.json",
+            "--file",
+            "starter.py",
+        ],
+        env={"CODERPAD_API_KEY": None},
+    )
+    assert result.exit_code == USAGE_ERROR
+    assert "cannot be combined" in result.output
