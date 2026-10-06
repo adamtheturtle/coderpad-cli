@@ -15,6 +15,7 @@ from coderpad.transports import Transport
 from coderpad.types import QuestionVariantFileContent, QuestionVariantUnset
 
 from coderpad_cli._sources import PreparedSource, prepare_source
+from coderpad_cli._variant_commands import register_variant_commands
 
 
 def create_cli(*, transport: Transport | None = None) -> click.Group:
@@ -168,6 +169,13 @@ def create_cli(*, transport: Transport | None = None) -> click.Group:
         )
 
     _ = variants.command()(create)
+    register_variant_commands(
+        group=variants,
+        transport=transport,
+        validate_id=_validate_id,
+        api_key=_api_key,
+        request_errors=_request_errors,
+    )
     return cli
 
 

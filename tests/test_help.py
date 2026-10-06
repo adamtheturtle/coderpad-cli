@@ -18,8 +18,20 @@ from coderpad_cli import main
         ["questions", "upload"],
         ["questions", "variants"],
         ["questions", "variants", "create"],
+        ["questions", "variants", "list"],
+        ["questions", "variants", "get"],
+        ["questions", "variants", "delete"],
     ],
-    ids=["root", "questions", "upload", "variants", "variants-create"],
+    ids=[
+        "root",
+        "questions",
+        "upload",
+        "variants",
+        "variants-create",
+        "variants-list",
+        "variants-get",
+        "variants-delete",
+    ],
 )
 def test_help(
     arguments: list[str], file_regression: FileRegressionFixture

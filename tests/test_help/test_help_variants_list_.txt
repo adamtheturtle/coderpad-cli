@@ -1,0 +1,6 @@
+Usage: coderpad questions variants list [OPTIONS] QUESTION_ID
+
+  List a question's variants as JSON, including template identity.
+
+Options:
+  --help  Show this message and exit.

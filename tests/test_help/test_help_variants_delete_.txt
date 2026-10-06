@@ -1,0 +1,7 @@
+Usage: coderpad questions variants delete [OPTIONS] QUESTION_ID VARIANT_ID
+
+  Delete only this variant. Mutations are never retried.
+
+Options:
+  --dry-run  Print a JSON plan without credentials or network access.
+  --help     Show this message and exit.

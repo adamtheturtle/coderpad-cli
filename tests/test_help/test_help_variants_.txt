@@ -7,3 +7,6 @@ Options:
 
 Commands:
   create  Create a variant and print its question and variant IDs as JSON.
+  delete  Delete only this variant.
+  get     Get one variant as JSON without changing it.
+  list    List a question's variants as JSON, including template identity.
