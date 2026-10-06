@@ -1,0 +1,2 @@
+Add question-scoped variant list, get, and delete commands with JSON output.
+Deletion supports a network-free dry run and is never retried.

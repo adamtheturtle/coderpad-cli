@@ -1,0 +1,6 @@
+Usage: coderpad questions variants get [OPTIONS] QUESTION_ID VARIANT_ID
+
+  Get one variant as JSON without changing it.
+
+Options:
+  --help  Show this message and exit.

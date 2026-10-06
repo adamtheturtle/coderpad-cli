@@ -788,3 +788,148 @@ def test_create_invalid_utf8(
             "Error: Source text and .gitignore files must be valid UTF-8.\n"
         )
         assert len(router.calls) == 0
+
+
+@pytest.mark.parametrize(argnames="command", argvalues=["list", "get"])
+def test_variant_discovery(command: str) -> None:
+    """Reads emit full JSON with parent and project-template identity."""
+    response = _variant_response()
+    with respx.mock() as router:
+        route = router.get(
+            url=f"{_URL}/variants" if command == "list" else _VARIANT_URL
+        ).respond(json=[response] if command == "list" else response)
+        result = CliRunner().invoke(
+            cli=main,
+            args=[
+                "questions",
+                "variants",
+                command,
+                "123456",
+                *(["7"] if command == "get" else []),
+            ],
+            env={"CODERPAD_API_KEY": "synthetic-secret"},
+        )
+        assert result.exit_code == 0, result.output
+        output = dict[str, JSONValue](json.loads(s=result.output))
+        variant: JSONValue
+        if command == "list":
+            assert output["question_id"] == response["question_id"]
+            variants = output["variants"]
+            assert isinstance(variants, list)
+            variant = variants[0]
+        else:
+            variant = output
+        assert isinstance(variant, dict)
+        assert variant["question_id"] == response["question_id"]
+        assert variant["id"] == response["id"]
+        assert variant["language"] == response["language"]
+        assert (
+            variant["project_template_id"] == response["project_template_id"]
+        )
+        assert route.call_count == 1
+        assert (
+            route.calls.last.request.headers["Authorization"]
+            == 'Token token="synthetic-secret"'
+        )
+
+
+@pytest.mark.parametrize(argnames="dry_run", argvalues=[False, True])
+def test_delete_variant(*, dry_run: bool) -> None:
+    """Deletion touches only the selected endpoint, or makes no
+    request.
+    """
+    with respx.mock(assert_all_called=False) as router:
+        route = router.delete(url=_VARIANT_URL).respond(
+            status_code=HTTPStatus.NO_CONTENT
+        )
+        result = CliRunner().invoke(
+            cli=main,
+            args=[
+                "questions",
+                "variants",
+                "delete",
+                "123456",
+                "7",
+                *(["--dry-run"] if dry_run else []),
+            ],
+            env={"CODERPAD_API_KEY": None if dry_run else "synthetic-secret"},
+        )
+        assert result.exit_code == 0, result.output
+        assert json.loads(s=result.output) == {
+            "operation": "delete_variant",
+            "question_id": 123456,
+            "variant_id": 7,
+        }
+        assert route.call_count == (0 if dry_run else 1)
+        assert len(router.calls) == (0 if dry_run else 1)
+
+
+@pytest.mark.parametrize(
+    argnames="arguments",
+    argvalues=[
+        ["list", "0"],
+        ["get", "0", "7"],
+        ["get", "123456", "0"],
+        ["delete", "0", "7"],
+        ["delete", "123456", "0"],
+    ],
+)
+def test_variant_discovery_rejects_invalid_ids(arguments: list[str]) -> None:
+    """Invalid parent and child IDs fail before authentication or
+    network.
+    """
+    with respx.mock(assert_all_called=False) as router:
+        result = CliRunner().invoke(
+            cli=main,
+            args=["questions", "variants", *arguments],
+            env={"CODERPAD_API_KEY": None},
+        )
+        assert result.exit_code == USAGE_ERROR
+        assert len(router.calls) == 0
+
+
+def test_variant_delete_error_is_safe_and_not_retried() -> None:
+    """Mutation errors stay nonzero, secret-free, and single-request."""
+    with respx.mock() as router:
+        route = router.delete(url=_VARIANT_URL).respond(
+            status_code=HTTPStatus.FORBIDDEN,
+            json={"message": "synthetic-secret"},
+        )
+        result = CliRunner().invoke(
+            cli=main,
+            args=["questions", "variants", "delete", "123456", "7"],
+            env={"CODERPAD_API_KEY": "synthetic-secret"},
+        )
+        assert result.exit_code == 1
+        assert (
+            result.output
+            == "Error: CoderPad rejected the variant deletion (HTTP 403).\n"
+        )
+        assert route.call_count == 1
+
+
+@pytest.mark.parametrize(argnames="command", argvalues=["list", "get"])
+def test_variant_discovery_malformed_response_is_safe(command: str) -> None:
+    """Malformed server data does not appear in error output."""
+    with respx.mock() as router:
+        payload = {"id": "synthetic-secret"}
+        route = router.get(
+            url=f"{_URL}/variants" if command == "list" else _VARIANT_URL
+        ).respond(json=[payload] if command == "list" else payload)
+        result = CliRunner().invoke(
+            cli=main,
+            args=[
+                "questions",
+                "variants",
+                command,
+                "123456",
+                *(["7"] if command == "get" else []),
+            ],
+            env={"CODERPAD_API_KEY": "synthetic-secret"},
+        )
+        assert result.exit_code == 1
+        assert (
+            result.output
+            == "Error: CoderPad returned an invalid variant response.\n"
+        )
+        assert route.call_count == 1
