@@ -11,6 +11,7 @@ Homebrew
 Literalizer
 Nix
 POSIX
+Pandoc
 PyInstaller
 PyPI
 Pylint
@@ -42,6 +43,7 @@ multipart
 nonretryable
 prebuilt
 prek
+reStructuredText
 retryable
 scm
 setuptools

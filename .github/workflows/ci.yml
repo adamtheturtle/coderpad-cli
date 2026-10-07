@@ -46,6 +46,13 @@ jobs:
       - run: uv build
       - run: uv run --locked twine check dist/*
       - run: uv run --locked check-wheel-contents dist/*.whl
+      - run: sudo apt-get update && sudo apt-get install --yes pandoc
+      - name: Check release-note rendering
+        run: |
+          RELEASE_VERSION="$(cat VERSION)"
+          export RELEASE_VERSION
+          pandoc --from=rst --to=gfm --wrap=none --fail-if-warnings \
+            --lua-filter=bin/release_notes.lua CHANGELOG.rst --output=release-notes.md
       - name: Smoke installed wheel
         run: |
           uv venv /tmp/coderpad-wheel
