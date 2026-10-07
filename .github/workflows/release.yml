@@ -28,12 +28,10 @@ jobs:
       - run: uv build
       - run: uv run --locked twine check dist/*
       - run: uv run --locked check-wheel-contents dist/*.whl
-      - run: sudo apt-get update && sudo apt-get install --yes pandoc
-      - name: Render the tagged release notes as GitHub Markdown
+      - name: Select the tagged release notes
         env:
           RELEASE_VERSION: ${{ github.ref_name }}
-        run: pandoc --from=rst --to=gfm --wrap=none --fail-if-warnings --lua-filter=bin/release_notes.lua
-          CHANGELOG.rst --output=release-notes.md
+        run: cp "docs/source/changelog/$RELEASE_VERSION.md" release-notes.md
       - uses: actions/upload-artifact@v7
         with:
           name: distributions

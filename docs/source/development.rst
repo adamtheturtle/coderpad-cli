@@ -44,33 +44,27 @@ Repeat ``git submodule update --init spec`` after pulling a pin update.
 Tests only read the local document and never download it.
 Installed CLI commands do not depend on the submodule.
 
-Add a Towncrier feature or bugfix fragment for each user-visible change.
+Add a Towncrier feature or bugfix fragment in Markdown for each user-visible
+change, such as ``newsfragments/123.bugfix.md``.
 
 Versions derive from Git tags using setuptools-scm.
 Untagged initial builds have a development version.
 Use date-based tags such as ``2026.10.02`` for releases; no release tag is
 created as part of repository initialization.
 Before tagging a release, assemble notes with
-``uv run towncrier build --yes --version VERSION``, commit the changelog, then
-write the same version to ``VERSION``, commit it, then tag the commit.
+``uv run towncrier build --yes --version VERSION``, commit the generated notes
+in ``docs/source/changelog/VERSION.md``, then write the same version to
+``VERSION``, commit it, then tag the commit.
 Pushing a tag is the explicit publication trigger.
 The release workflow builds and checks packages, builds three standalone
 binaries, and then publishes to PyPI, GitHub Releases, and GHCR.
 
-Towncrier assembles reStructuredText for the Sphinx changelog.
-The release workflow uses Pandoc to convert only the tagged version's section
-to GitHub Markdown before publishing.
-Missing or duplicate version sections fail validation.
-Pull requests check the same rendering path using ``VERSION``.
-Install Pandoc locally (``brew install pandoc`` on macOS) to preview the notes:
-
-.. code-block:: shell
-
-   RELEASE_VERSION="$(cat VERSION)"
-   export RELEASE_VERSION
-   pandoc --from=rst --to=gfm --wrap=none --fail-if-warnings --lua-filter=bin/release_notes.lua CHANGELOG.rst --output=release-notes.md
-
-Check the rendered Markdown before pushing a release tag.
+Towncrier writes a separate Markdown file for each release.
+Sphinx reads those files through MyST and lists them in the changelog.
+The release workflow uploads the tagged version's file directly as its GitHub
+release notes.
+Pull requests check that the notes for ``VERSION`` exist.
+Review the generated Markdown before pushing a release tag.
 
 Local builds
 ------------

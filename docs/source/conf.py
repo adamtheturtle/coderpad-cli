@@ -5,7 +5,7 @@ import importlib.metadata
 project = "coderpad-cli"
 author = "Adam Dangoor"
 release = importlib.metadata.version(distribution_name="coderpad-cli")
-extensions = ["sphinx_click.ext", "sphinxcontrib.spelling"]
+extensions = ["myst_parser", "sphinx_click.ext", "sphinxcontrib.spelling"]
 html_theme = "furo"
 nitpicky = True
 html_theme_options = {
