@@ -16,3 +16,4 @@ styles/ai-tells/
 doccmd_*
 .pyrefly_cache/
 styles/config/
+/release-notes.md

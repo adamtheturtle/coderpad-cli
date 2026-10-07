@@ -57,6 +57,21 @@ Pushing a tag is the explicit publication trigger.
 The release workflow builds and checks packages, builds three standalone
 binaries, and then publishes to PyPI, GitHub Releases, and GHCR.
 
+Towncrier assembles reStructuredText for the Sphinx changelog.
+The release workflow uses Pandoc to convert only the tagged version's section
+to GitHub Markdown before publishing.
+Missing or duplicate version sections fail validation.
+Pull requests check the same rendering path using ``VERSION``.
+Install Pandoc locally (``brew install pandoc`` on macOS) to preview the notes:
+
+.. code-block:: shell
+
+   RELEASE_VERSION="$(cat VERSION)"
+   export RELEASE_VERSION
+   pandoc --from=rst --to=gfm --wrap=none --fail-if-warnings --lua-filter=bin/release_notes.lua CHANGELOG.rst --output=release-notes.md
+
+Check the rendered Markdown before pushing a release tag.
+
 Local builds
 ------------
 

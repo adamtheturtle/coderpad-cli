@@ -28,10 +28,20 @@ jobs:
       - run: uv build
       - run: uv run --locked twine check dist/*
       - run: uv run --locked check-wheel-contents dist/*.whl
+      - run: sudo apt-get update && sudo apt-get install --yes pandoc
+      - name: Render the tagged release notes as GitHub Markdown
+        env:
+          RELEASE_VERSION: ${{ github.ref_name }}
+        run: pandoc --from=rst --to=gfm --wrap=none --fail-if-warnings --lua-filter=bin/release_notes.lua
+          CHANGELOG.rst --output=release-notes.md
       - uses: actions/upload-artifact@v7
         with:
           name: distributions
           path: dist/*
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-notes
+          path: release-notes.md
   binaries:
     # actionlint 1.7.12 accepts ./ for local workflows and rejects $/.
     uses: ./.github/workflows/binaries.yml  # zizmor: ignore[self-repository]
@@ -61,18 +71,16 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
       - uses: actions/download-artifact@v8
         with:
           path: artifacts
       - name: Attach distributions and binaries
         env:
+          GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
         run: gh release create "$TAG" artifacts/distributions/* artifacts/coderpad-*/*
-          --title "$TAG" --notes-file CHANGELOG.rst --verify-tag
+          --title "$TAG" --notes-file artifacts/release-notes/release-notes.md --verify-tag
   docker:
     needs: publish
     runs-on: ubuntu-latest
