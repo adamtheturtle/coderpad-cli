@@ -1,7 +1,7 @@
-include LICENSE README.rst CHANGELOG.rst
+include LICENSE README.rst
 include VERSION
 recursive-include src *.py *.typed
-recursive-include docs *.rst *.py
+recursive-include docs *.rst *.md *.py
 recursive-include newsfragments *
 include .vale.ini prek.toml spelling_private_dict.txt zizmor.yml
 recursive-include styles/snapper *.yml
@@ -9,7 +9,6 @@ include .github/dependabot.yml
 recursive-include .github/workflows *.yml
 include Dockerfile flake.nix flake.lock uv.lock
 recursive-include bin *.py
-recursive-include bin *.lua
 recursive-include tests *.py *.json *.rst *.txt
 include spec/openapi.json spec/LICENSE spec/README.rst
 prune spec/.github
