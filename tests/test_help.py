@@ -23,17 +23,7 @@ from coderpad_cli import main
         ["questions", "variants", "delete"],
         ["questions", "variants", "update"],
     ],
-    ids=[
-        "root",
-        "questions",
-        "upload",
-        "variants",
-        "variants-create",
-        "variants-list",
-        "variants-get",
-        "variants-delete",
-        "variants-update",
-    ],
+    ids=lambda arguments: "-".join(arguments) or "root",
 )
 def test_help(
     arguments: list[str], file_regression: FileRegressionFixture
