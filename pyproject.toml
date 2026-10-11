@@ -19,6 +19,7 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
 ]
 dynamic = [ "version" ]
 dependencies = [
@@ -96,7 +97,7 @@ version_file = "src/coderpad_cli/_version.py"
 version_scheme = "post-release"
 
 [tool.uv]
-required-version = "==0.12.19"
+required-version = "==0.13.0"
 
 [tool.ruff]
 line-length = 79
@@ -206,7 +207,7 @@ ignore_names = [
 
 [tool.pyproject-fmt]
 keep_full_version = true
-max_supported_python = "3.14"
+max_supported_python = "3.15"
 
 [tool.mypy]
 files = [ "." ]
