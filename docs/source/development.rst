@@ -41,8 +41,8 @@ See ``tests/fixtures/README.rst`` for the fixture's source and update policy.
 The specification is owned by ``adamtheturtle/coderpad-openapi``.
 The ``spec`` Git submodule pins an immutable commit from that repository.
 Repeat ``git submodule update --init spec`` after pulling a pin update.
-Tests only read the local document and never download it.
-Installed CLI commands do not depend on the submodule.
+Tests read the local document without downloading it, while installed CLI
+commands run independently of the submodule.
 
 Add a Towncrier feature or bugfix fragment in Markdown for each user-visible
 change, such as ``newsfragments/123.bugfix.md``.
