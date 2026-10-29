@@ -515,7 +515,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "click", specifier = ">=8.3,<8.6" },
-    { name = "coderpad-py", specifier = ">=2026.10.1.1" },
+    { name = "coderpad-py", specifier = ">=2026.10.29" },
     { name = "httpx", specifier = ">=0.28" },
     { name = "pathspec", specifier = ">=1" },
     { name = "pydantic", specifier = ">=2.13.5" },
@@ -576,7 +576,7 @@ dev = [
 
 [[package]]
 name = "coderpad-py"
-version = "2026.10.7"
+version = "2026.10.29"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "beartype" },
@@ -585,9 +585,9 @@ dependencies = [
     { name = "pydantic" },
     { name = "typing-extensions", marker = "python_full_version < '3.15'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/2d/40/124669e1b85f6aa0fe5c6888772561ae26dcecf3b25bb1ec820b6aa88add/coderpad_py-2026.10.7.tar.gz", hash = "sha256:3e9dcb5826046946a1217176d6ce8e0c17ebfb16a49b3a13d94a62abc1da4aa2", size = 147311, upload-time = "2026-10-07T02:07:53.489Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/da/d7/3ce60646bc5a4eec505256677098c0c7b768f3bbba2de649dd0383e0dff3/coderpad_py-2026.10.29.tar.gz", hash = "sha256:1582c862aa908f73547b1c7a79877f4a5e4c5885e56c083823f5a2a59cf75fc3", size = 150804, upload-time = "2026-10-29T14:49:15.206Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/88/92/a2c4d2dd992b238cd4fb6620bd48d6878ee270b1e423c906cfff0087bf15/coderpad_py-2026.10.7-py3-none-any.whl", hash = "sha256:c928e76b034bbb3aecca536921699872bde5cddde8798c1fe8c381ba4b0f65d3", size = 63923, upload-time = "2026-10-07T02:07:51.834Z" },
+    { url = "https://files.pythonhosted.org/packages/fe/0e/667beb1a455a1a4466ba69b8fd512983e706ab0bbe346d36070a0bb0e11a/coderpad_py-2026.10.29-py3-none-any.whl", hash = "sha256:82d4e61713424166e825e41d5d0d954ec60e79384f827941d2e641ed17d0d4fb", size = 65541, upload-time = "2026-10-29T14:49:13.924Z" },
 ]
 
 [[package]]

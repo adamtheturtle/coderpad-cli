@@ -1,0 +1,10 @@
+Usage: coderpad screen campaigns [OPTIONS] COMMAND [ARGS]...
+
+  Inspect reusable assessment campaign definitions.
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  get   Get ordered questions, settings, and team identity as JSON.
+  list  List campaigns as JSON to discover their IDs.

@@ -1,0 +1,6 @@
+Usage: coderpad questions get [OPTIONS] QUESTION_ID
+
+  Get a question, including starter files and template metadata.
+
+Options:
+  --help  Show this message and exit.

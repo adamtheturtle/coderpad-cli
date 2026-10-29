@@ -11,9 +11,10 @@ import click
 import httpx
 from coderpad.client import CoderPad
 from coderpad.exceptions import CoderPadError
-from coderpad.transports import Transport
+from coderpad.transports import JSONTransport, Transport
 from coderpad.types import QuestionVariantFileContent, QuestionVariantUnset
 
+from coderpad_cli._read_commands import register_read_commands
 from coderpad_cli._sources import PreparedSource, prepare_source
 from coderpad_cli._variant_commands import register_variant_commands
 from coderpad_cli._variant_update import (
@@ -24,7 +25,11 @@ from coderpad_cli._variant_update import (
 )
 
 
-def create_cli(*, transport: Transport | None = None) -> click.Group:
+def create_cli(
+    *,
+    transport: Transport | None = None,
+    screen_transport: JSONTransport | None = None,
+) -> click.Group:
     """Create the CLI, optionally using a supported SDK transport."""
 
     @click.group(name="coderpad")
@@ -32,7 +37,9 @@ def create_cli(*, transport: Transport | None = None) -> click.Group:
         version=version(distribution_name="coderpad-cli"), prog_name="coderpad"
     )
     def cli() -> None:
-        """Upload starter code and create CoderPad question variants."""
+        """Manage starter code and inspect Interview and Screen
+        resources.
+        """
 
     @cli.group()
     def questions() -> None:
@@ -211,6 +218,13 @@ def create_cli(*, transport: Transport | None = None) -> click.Group:
         transport=transport,
         validate_id=_validate_id,
         api_key=_api_key,
+        request_errors=_request_errors,
+    )
+    register_read_commands(
+        cli=cli,
+        questions=questions,
+        transport=transport,
+        screen_transport=screen_transport,
         request_errors=_request_errors,
     )
     return cli

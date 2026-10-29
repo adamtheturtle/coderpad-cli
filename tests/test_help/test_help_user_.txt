@@ -1,0 +1,9 @@
+Usage: coderpad user [OPTIONS] COMMAND [ARGS]...
+
+  Inspect the Interview API key owner.
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  get  Get the key owner's name, anonymous ID, and pad capability.

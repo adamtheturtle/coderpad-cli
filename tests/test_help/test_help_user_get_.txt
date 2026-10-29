@@ -1,0 +1,6 @@
+Usage: coderpad user get [OPTIONS]
+
+  Get the key owner's name, anonymous ID, and pad capability.
+
+Options:
+  --help  Show this message and exit.

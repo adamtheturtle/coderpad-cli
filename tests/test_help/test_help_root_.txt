@@ -1,6 +1,6 @@
 Usage: coderpad [OPTIONS] COMMAND [ARGS]...
 
-  Upload starter code and create CoderPad question variants.
+  Manage starter code and inspect Interview and Screen resources.
 
 Options:
   --version  Show the version and exit.
@@ -8,3 +8,5 @@ Options:
 
 Commands:
   questions  Manage question starter code and variants.
+  screen     Inspect Screen using CODERPAD_SCREEN_API_KEY.
+  user       Inspect the Interview API key owner.

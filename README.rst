@@ -43,8 +43,42 @@ Empty files are valid.
 Neither paths nor IDs are inferred from repository configuration.
 Inputs are fully read or staged before a mutation is issued.
 Errors exit nonzero.
-API response bodies and credentials are never printed.
+API error response bodies and credentials are never printed.
 Uploads retain the SDK's retry behavior.
+
+Inspecting resources
+--------------------
+
+Read a complete question as JSON, including multi-file starter overlays,
+hidden/deleted flags, and project-template metadata:
+
+.. code-block:: console
+
+   coderpad questions get 123456
+   coderpad user get
+
+These commands use ``CODERPAD_API_KEY``.
+The user response contains the key owner's name, anonymous identifier, and
+pad-creation capability.
+CoderPad does not return the owner's email or organization role.
+Question files describe changes to a project template, so unchanged template
+files may be omitted.
+The question's variant summaries identify templates, while
+``questions variants get`` retrieves a variant's code.
+
+Inspect Screen campaigns with the separate ``CODERPAD_SCREEN_API_KEY``:
+
+.. code-block:: console
+
+   coderpad screen campaigns list
+   coderpad screen campaigns get 121 --region eu
+
+For EU accounts, use ``--region eu`` instead of the default ``us`` region.
+Only the Screen key is required for these commands.
+A campaign definition contains its ordered question selections, settings, and
+team identity.
+These read commands print only the requested JSON resource to standard output
+and do not change remote resources.
 
 Question variants
 -----------------
