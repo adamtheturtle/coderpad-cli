@@ -7,17 +7,15 @@ This independent CLI preserves titles, descriptions, and other metadata by
 updating only the supplied starter-code field.
 
 Requires Python 3.12 or later.
-No package release has been published yet.
-Install the checkout for now:
+Install with ``uv tool install coderpad-cli`` or ``pip install coderpad-cli``.
+
+To run a checkout:
 
 .. code-block:: console
 
    uv sync --locked
    uv run coderpad --help
    uv run python -m coderpad_cli --version
-
-After the first PyPI release, install with ``uv tool install coderpad-cli`` or
-``pip install coderpad-cli``.
 
 Usage
 -----
