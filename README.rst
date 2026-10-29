@@ -60,8 +60,8 @@ Create a variant once, using a language or project-template slug:
 
 Successful creation writes only JSON to standard output, such as
 ``{"question_id": 123456, "variant_id": 7}``.
-Save the returned ID in your upload configuration and use it for later updates.
-The CLI does not save IDs or match existing variants by language or title.
+Save the returned ID in your upload configuration for later updates, because
+the CLI does not save IDs or match existing variants by language or title.
 Every real invocation creates a new variant and is never automatically retried.
 Existing question metadata and other variants are not changed.
 
@@ -71,7 +71,8 @@ blank code instead of using the default.
 Use ``--directory`` for project files, which are layered over the template at
 creation rather than replacing all template files.
 Source selection and UTF-8 validation match variant uploads.
-The two sources are mutually exclusive; ``--exclude`` requires a directory.
+``--file`` and ``--directory`` are mutually exclusive.
+``--exclude`` requires a directory.
 CoderPad validates whether the supplied language or template is available.
 Dry runs validate local inputs and print a JSON plan with the operation,
 question ID, language, and selected files, but no invented variant ID.
