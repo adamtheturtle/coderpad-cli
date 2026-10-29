@@ -9,7 +9,7 @@ builds.
 It does not inherit conversion features, historical release notes, checker
 exceptions, Homebrew or winget publication, signing secrets, or unavailable
 artifact links.
-The SDK baseline is the released ``coderpad-py==2026.10.1.1`` in ``uv.lock``.
+The SDK baseline is the released ``coderpad-py==2026.10.29`` in ``uv.lock``.
 
 .. code-block:: shell
 
@@ -23,7 +23,8 @@ The SDK baseline is the released ``coderpad-py==2026.10.1.1`` in ``uv.lock``.
    uv run twine check dist/*
    uv run check-wheel-contents dist/*.whl
 
-Tests use the real SDK with its public ``Transport`` interface.
+Tests use the real SDK with its public ``Transport`` and ``JSONTransport``
+interfaces.
 Tests run offline through the SDK transport boundary.
 Retry behavior remains the SDK's responsibility.
 Synthetic transports assert the exact mutation payload, including the absence

@@ -1,0 +1,9 @@
+Usage: coderpad screen [OPTIONS] COMMAND [ARGS]...
+
+  Inspect Screen using CODERPAD_SCREEN_API_KEY.
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  campaigns  Inspect reusable assessment campaign definitions.

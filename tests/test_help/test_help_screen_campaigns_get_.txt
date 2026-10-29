@@ -1,0 +1,7 @@
+Usage: coderpad screen campaigns get [OPTIONS] CAMPAIGN_ID
+
+  Get ordered questions, settings, and team identity as JSON.
+
+Options:
+  --region [us|eu]  Screen server region.  [default: us]
+  --help            Show this message and exit.

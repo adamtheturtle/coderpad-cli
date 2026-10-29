@@ -6,5 +6,6 @@ Options:
   --help  Show this message and exit.
 
 Commands:
+  get       Get a question, including starter files and template metadata.
   upload    Replace starter code while preserving question metadata.
   variants  Manage variants of an existing question.
