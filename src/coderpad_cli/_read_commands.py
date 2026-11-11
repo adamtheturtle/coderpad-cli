@@ -26,11 +26,11 @@ def register_read_commands(
         metadata.
         """
         with (
-            _response_errors(
+            response_errors(
                 operation="question retrieval", request_errors=request_errors
             ),
             CoderPad(
-                api_key=_required_key(name="CODERPAD_API_KEY"),
+                api_key=required_key(name="CODERPAD_API_KEY"),
                 transport=transport,
             ) as client,
         ):
@@ -44,11 +44,11 @@ def register_read_commands(
     def get_user() -> None:
         """Get the key owner's name, anonymous ID, and pad capability."""
         with (
-            _response_errors(
+            response_errors(
                 operation="user retrieval", request_errors=request_errors
             ),
             CoderPad(
-                api_key=_required_key(name="CODERPAD_API_KEY"),
+                api_key=required_key(name="CODERPAD_API_KEY"),
                 transport=transport,
             ) as client,
         ):
@@ -73,7 +73,7 @@ def register_read_commands(
     def list_campaigns(region: str) -> None:
         """List campaigns as JSON to discover their IDs."""
         with (
-            _response_errors(
+            response_errors(
                 operation="campaign listing", request_errors=request_errors
             ),
             _screen_client(
@@ -98,7 +98,7 @@ def register_read_commands(
     def get_campaign(campaign_id: int, region: str) -> None:
         """Get ordered questions, settings, and team identity as JSON."""
         with (
-            _response_errors(
+            response_errors(
                 operation="campaign retrieval", request_errors=request_errors
             ),
             _screen_client(
@@ -108,13 +108,61 @@ def register_read_commands(
             result = client.screen.campaigns.get(campaign_id=campaign_id)
         click.echo(message=result.model_dump_json())
 
+    _register_languages(
+        cli=cli, transport=transport, request_errors=request_errors
+    )
     _ = questions.command(name="get")(get_question)
     _ = user.command(name="get")(get_user)
     _ = campaigns.command(name="list")(list_campaigns)
     _ = campaigns.command(name="get")(get_campaign)
 
 
-def _required_key(name: str) -> str:
+def _register_languages(
+    *,
+    cli: click.Group,
+    transport: Transport | None,
+    request_errors: Callable[[str], AbstractContextManager[None]],
+) -> None:
+    """Register independent environment discovery commands."""
+
+    @cli.group()
+    def languages() -> None:
+        """Discover available environments and starter code."""
+
+    def list_languages() -> None:
+        """List language and project environments as catalog JSON."""
+        with (
+            response_errors(
+                operation="language listing", request_errors=request_errors
+            ),
+            CoderPad(
+                api_key=required_key(name="CODERPAD_API_KEY"),
+                transport=transport,
+            ) as client,
+        ):
+            result = client.languages.list()
+        click.echo(message=json.dumps(obj=result))
+
+    @click.argument("language")
+    def get_language(language: str) -> None:
+        """Get starter code and context for an environment."""
+        with (
+            response_errors(
+                operation="language retrieval", request_errors=request_errors
+            ),
+            CoderPad(
+                api_key=required_key(name="CODERPAD_API_KEY"),
+                transport=transport,
+            ) as client,
+        ):
+            result = client.languages.get(language=language)
+        click.echo(message=json.dumps(obj=result))
+
+    _ = languages.command(name="list")(list_languages)
+    _ = languages.command(name="get")(get_language)
+
+
+def required_key(name: str) -> str:
     """Require the correct product's key without exposing its value."""
     key = os.environ.get(key=name)
     if key is None or key.strip() == "":
@@ -129,7 +177,7 @@ def _screen_client(
     """Use the independent Screen key on a documented server origin."""
     return CoderPad(
         api_key="",
-        screen_api_key=_required_key(name="CODERPAD_SCREEN_API_KEY"),
+        screen_api_key=required_key(name="CODERPAD_SCREEN_API_KEY"),
         screen_base_url=SCREEN_EU_BASE_URL
         if region == "eu"
         else SCREEN_US_BASE_URL,
@@ -138,7 +186,7 @@ def _screen_client(
 
 
 @contextmanager
-def _response_errors(
+def response_errors(
     *,
     operation: str,
     request_errors: Callable[[str], AbstractContextManager[None]],

@@ -1,0 +1,10 @@
+Usage: coderpad languages [OPTIONS] COMMAND [ARGS]...
+
+  Discover available environments and starter code.
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  get   Get starter code and context for an environment.
+  list  List language and project environments as catalog JSON.

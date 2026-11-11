@@ -1,8 +1,8 @@
 coderpad-cli
 ============
 
-Upload starter code to an existing CoderPad Interview question using
-``coderpad-py``.
+Manage starter code, create Interview pads, and inspect available environments
+using ``coderpad-py``.
 This independent CLI preserves titles, descriptions, and other metadata by
 updating only the supplied starter-code field.
 
@@ -54,6 +54,8 @@ hidden/deleted flags, and project-template metadata:
 
    coderpad questions get 123456
    coderpad user get
+   coderpad languages list
+   coderpad languages get multifile_python
 
 These commands use ``CODERPAD_API_KEY``.
 The user response contains the key owner's name, anonymous identifier, and
@@ -185,3 +187,22 @@ There are no prebuilt artifacts yet.
 
 See ``docs/source/migration.rst`` for migrating an existing shell uploader and
 keeping repository-specific snippet preparation outside this CLI.
+
+Creating pads
+-------------
+
+Inspect an environment before creating a project pad:
+
+.. code-block:: console
+
+   coderpad languages get multifile_python
+   coderpad pads create --language multifile_python --dry-run
+   coderpad pads create --language multifile_python --directory ./starter
+   coderpad pads create --language python3 --file ./starter.py
+   coderpad pads create --question-id 123456
+
+Directory uploads use the SDK's ZIP importer and the same Git ignore and
+exclusion handling as question uploads.
+Omit starter code to use the environment's default files.
+Real creation consumes your account's pad quota.
+Dry runs need no API key and make no network requests.

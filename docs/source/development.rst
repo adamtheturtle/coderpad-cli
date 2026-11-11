@@ -9,7 +9,7 @@ builds.
 It does not inherit conversion features, historical release notes, checker
 exceptions, Homebrew or winget publication, signing secrets, or unavailable
 artifact links.
-The SDK baseline is the released ``coderpad-py==2026.10.29`` in ``uv.lock``.
+The SDK baseline is the released ``coderpad-py==2026.11.11.1`` in ``uv.lock``.
 
 .. code-block:: shell
 

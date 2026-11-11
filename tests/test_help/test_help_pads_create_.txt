@@ -1,0 +1,15 @@
+Usage: coderpad pads create [OPTIONS]
+
+  Create a pad and print its JSON response.
+
+Options:
+  --title TEXT                 Optional pad title.
+  --language TEXT              Single-file language key or project-template
+                               slug.
+  --question-id INTEGER RANGE  Seed from an existing question.  [x>=1]
+  --directory PATH             Project directory, respecting Git ignores.
+  --file PATH                  Single-file starter code.
+  --exclude TEXT               Additional directory exclusion. Repeatable.
+  --dry-run                    Validate and preview without credentials or
+                               network access.
+  --help                       Show this message and exit.
