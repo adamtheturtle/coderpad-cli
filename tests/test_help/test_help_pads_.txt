@@ -1,0 +1,9 @@
+Usage: coderpad pads [OPTIONS] COMMAND [ARGS]...
+
+  Create Interview pads.
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  create  Create a pad and print its JSON response.

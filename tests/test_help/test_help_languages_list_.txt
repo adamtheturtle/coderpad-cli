@@ -1,0 +1,6 @@
+Usage: coderpad languages list [OPTIONS]
+
+  List language and project environments as catalog JSON.
+
+Options:
+  --help  Show this message and exit.

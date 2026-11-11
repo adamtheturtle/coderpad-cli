@@ -1,0 +1,6 @@
+Usage: coderpad languages get [OPTIONS] LANGUAGE
+
+  Get starter code and context for an environment.
+
+Options:
+  --help  Show this message and exit.

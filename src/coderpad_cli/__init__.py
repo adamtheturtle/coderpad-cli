@@ -14,6 +14,7 @@ from coderpad.exceptions import CoderPadError
 from coderpad.transports import JSONTransport, Transport
 from coderpad.types import QuestionVariantFileContent, QuestionVariantUnset
 
+from coderpad_cli._pad_commands import register_pad_commands
 from coderpad_cli._read_commands import register_read_commands
 from coderpad_cli._sources import PreparedSource, prepare_source
 from coderpad_cli._variant_commands import register_variant_commands
@@ -226,6 +227,9 @@ def create_cli(
         transport=transport,
         screen_transport=screen_transport,
         request_errors=_request_errors,
+    )
+    register_pad_commands(
+        cli=cli, transport=transport, request_errors=_request_errors
     )
     return cli
 
