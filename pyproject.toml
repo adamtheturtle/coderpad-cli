@@ -225,6 +225,7 @@ num_workers = "auto"
 project-excludes = [ "src/coderpad_cli/_version.py" ]
 search-path = [ "." ]
 errors.non-exhaustive-match = "error"
+coverage.includes = [ "src/**" ]
 disable-project-excludes-heuristics = true
 enabled-ignores = [ "pyrefly" ]
 preset = "all"
