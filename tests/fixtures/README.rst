@@ -2,7 +2,7 @@ Question upload contract
 ========================
 
 Contract tests read the full ``spec/openapi.json`` from the pinned ``spec`` Git
-submodule, rather than maintaining a reduced copy here.
+submodule.
 The canonical specification is maintained in `coderpad-openapi`_.
 The Git tree records the exact commit used by this consumer.
 The initial pin is ``e1d67d75cc8fde40ee1f0f382793b2172302c6e3``.

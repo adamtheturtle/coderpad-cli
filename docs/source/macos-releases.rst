@@ -1,7 +1,7 @@
 macOS releases
 ==============
 
-The standalone macOS release binary needs a Developer ID Application signature
+The standalone executable for macOS needs a Developer ID Application signature
 and Apple notarization.
 These steps follow the current ``literalizer-cli`` release workflow inspected
 at ``cf435b8ee67dd9900d795a8438622ad02aaaf730``.
@@ -19,7 +19,7 @@ Signing and verification
 
 The certificate import action creates a temporary keychain and removes it in
 its post step.
-The PKCS#12 export must contain exactly one Developer ID Application identity.
+Include one Developer ID Application identity in the PKCS#12 export.
 An ambiguous identity fails the build.
 
 PyInstaller receives ``--codesign-identity "Developer ID Application"`` so that
@@ -41,7 +41,7 @@ A ticket cannot be stapled to a bare Mach-O executable.
 Gatekeeper uses its online ticket.
 ``spctl --assess --type exec`` can reject standalone code as not being an app,
 so it is not the release check.
-A future signed installer package or disk image could carry a stapled ticket
+A future signed installer package or disk image could include a stapled ticket
 for offline distribution.
 
 See `Apple's notarization workflow`_ and
@@ -89,7 +89,7 @@ Secure timestamps keep previously signed releases valid after expiry.
 Before the first release, run the signing and notarization path with the
 configured credentials and inspect the downloaded artifact.
 Local signature checks and unsigned CI alone do not prove Apple's acceptance.
-No package release or live CoderPad upload is needed to test the CLI itself.
+Test the CLI locally using the offline suite.
 
 After the workflow is merged, dispatch it from ``main`` to test notarization
 without publishing a release:

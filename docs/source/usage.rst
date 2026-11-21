@@ -47,7 +47,7 @@ On creation, overlays layer over template files.
 On update, they replace the file list.
 The ``.cpad`` directory cannot be deleted.
 
-All local inputs are validated before a mutation.
+The CLI validates the local inputs before writing.
 Content inputs and reset flags are mutually exclusive.
 ``--dry-run`` prints a JSON plan without keys or network access.
 Updates and creation are never automatically retried.

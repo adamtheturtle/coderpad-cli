@@ -32,13 +32,13 @@ Exactly one content source is required:
 Real uploads read ``CODERPAD_API_KEY`` from the environment.
 Get a key from your CoderPad dashboard settings.
 Missing, empty, and whitespace-only keys fail clearly.
-Dry runs need no key and make no network requests.
+Dry runs run offline without credentials.
 
 Single files must be UTF-8.
 Their text is preserved exactly, including CRLF, blank lines, trailing
 whitespace, a UTF-8 BOM, and documentation markers.
 Empty files are valid.
-Neither paths nor IDs are inferred from repository configuration.
+Supply paths and IDs explicitly.
 Inputs are fully read or staged before a mutation is issued.
 Errors exit nonzero.
 API error response bodies and credentials are never printed.
@@ -96,7 +96,8 @@ Successful creation writes only JSON to standard output, such as
 ``{"question_id": 123456, "variant_id": 7}``.
 Save the returned ID in your upload configuration for later updates, because
 the CLI does not save IDs or match existing variants by language or title.
-Every real invocation creates a new variant and is never automatically retried.
+An invocation in write mode creates a new variant.
+Run it again manually if needed.
 Existing question metadata and other variants are not changed.
 
 Omitting both sources uses the language or project template's default content.
@@ -104,13 +105,14 @@ Use ``--file`` for single-file starter code; an empty file explicitly creates
 blank code instead of using the default.
 Use ``--directory`` for project files, which are layered over the template at
 creation rather than replacing all template files.
-Source selection and UTF-8 validation match variant uploads.
+The CLI applies the same rules for source selection and UTF-8 validation as it
+does for uploads of variants.
 ``--file`` and ``--directory`` are mutually exclusive.
 ``--exclude`` requires a directory.
 CoderPad validates whether the supplied language or template is available.
 Dry runs validate local inputs and print a JSON plan with the operation,
 question ID, language, and selected files, but no invented variant ID.
-They require neither credentials nor network access.
+They run offline without credentials.
 Errors go to standard error with a nonzero exit status.
 If a creation response is lost or invalid, check the question before retrying
 to avoid creating a duplicate.
@@ -144,12 +146,11 @@ Directory selection
   A Git worktree's ``.git`` file also identifies its root.
 * In a Git repository, rules are inherited from the nearest Git root down to
   the upload directory.
-  Outside Git, rules start at the upload directory; unrelated parent
-  ``.gitignore`` files are not used.
+  Outside Git, start looking for rules in the upload directory.
 * Each traversed directory adds its own ``.gitignore`` rules.
   Later matching rules override earlier ones, and deeper files override
   ancestor rules.
-  Patterns are relative to their owning directory.
+  Interpret each pattern relative to the directory that defines it.
   Directory-only rules and negations follow Gitignore semantics.
   Excluded directories are pruned, so a child cannot re-include itself unless
   its parent is re-included first.
@@ -160,8 +161,8 @@ Directory selection
 * ``.git`` files and directories are always excluded at every depth.
   Repeatable ``--exclude PATTERN`` options form a final Gitignore rule layer,
   relative to the upload root.
-  This layer can exclude files re-included by ``.gitignore``; its own later
-  negations can undo its earlier patterns.
+  This layer can exclude files re-included by ``.gitignore``.
+  Later negations in this layer take precedence over its earlier patterns.
   It cannot re-include a file excluded by ``.gitignore`` or Git metadata.
 * ZIP files are included by default.
   Use ``--exclude '*.zip'`` to omit them.
@@ -205,4 +206,4 @@ Directory uploads use the SDK's ZIP importer and the same Git ignore and
 exclusion handling as question uploads.
 Omit starter code to use the environment's default files.
 Real creation consumes your account's pad quota.
-Dry runs need no API key and make no network requests.
+Dry runs run offline without credentials.

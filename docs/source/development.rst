@@ -36,7 +36,7 @@ shared OpenAPI specification in ``spec/openapi.json``.
 They also inspect the SDK-generated ZIP bytes and verify that metadata is
 absent from the outgoing update.
 The mock rejects every unregistered request.
-No SDK methods are replaced.
+The tests exercise the SDK methods directly.
 See ``tests/fixtures/README.rst`` for the fixture's source and update policy.
 
 The specification is owned by ``adamtheturtle/coderpad-openapi``.
@@ -50,8 +50,7 @@ change, such as ``newsfragments/123.bugfix.md``.
 
 Versions derive from Git tags using setuptools-scm.
 Untagged initial builds have a development version.
-Use date-based tags such as ``2026.10.02`` for releases; no release tag is
-created as part of repository initialization.
+Create date-based tags such as ``2026.10.02`` when releasing.
 Before tagging a release, assemble notes with
 ``uv run towncrier build --yes --version VERSION``, commit the generated notes
 in ``docs/source/changelog/VERSION.md``, then write the same version to
@@ -104,7 +103,7 @@ External setup
   ``adamtheturtle``, repository ``coderpad-cli``, workflow ``release.yml``,
   environment ``release``.
   Create that GitHub environment with appropriate protection before releasing.
-  No PyPI token is stored in the repository.
+  PyPI uses trusted publishing instead of a repository token.
 * Enable GitHub Pages with the GitHub Actions source before manually running
   ``publish-site.yml``.
   CI builds documentation without deploying it.
@@ -113,8 +112,8 @@ External setup
   Make the GHCR package public after the first release if needed.
 * Configure the five macOS signing and notarization repository secrets in
   :doc:`macos-releases` before releasing.
-  A missing credential fails the build; releases cannot fall back to an
-  unsigned macOS binary.
+  The build fails if a credential is missing.
+  A macOS release requires a signed binary.
 * No Homebrew tap, winget manifest, package-manager registration, or TestPyPI
   configuration has been created.
   Do not advertise those installation paths until they exist.
@@ -145,7 +144,7 @@ Checks cover dependency declarations, dead code, package metadata, docstrings,
 keyword-only parameters, documentation examples, shell commands, and Actions
 security alongside the four strict type checkers and branch coverage.
 Generated version files are excluded from source checks.
-The SDK owns its HTTP client and models.
+The SDK provides the HTTP client and models.
 
 Literalizer CLI check parity
 ----------------------------
@@ -154,8 +153,7 @@ Additional checks follow ``literalizer-cli`` at commit
 ``cf435b8ee67dd9900d795a8438622ad02aaaf730``.
 The dedicated ``uv-lock`` hook checks that dependency metadata and the lockfile
 agree.
-All Python source files are checked, including documentation and binary
-wrappers.
+The checks include Python source in documentation and binary wrappers.
 Tests run in parallel and check runtime types in the public package, tests, and
 fixtures.
 Help text for every command is compared with committed regression snapshots.
