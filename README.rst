@@ -1,10 +1,8 @@
 coderpad-cli
 ============
 
-Manage starter code, create Interview pads, and inspect available environments
-using ``coderpad-py``.
-This independent CLI preserves titles, descriptions, and other metadata by
-updating only the supplied starter-code field.
+Manage starter code, create Interview pads, and inspect available environments using ``coderpad-py``.
+This independent CLI preserves titles, descriptions, and other metadata by updating only the supplied starter-code field.
 
 Requires Python 3.12 or later.
 Install with ``uv tool install coderpad-cli`` or ``pip install coderpad-cli``.
@@ -32,13 +30,12 @@ Exactly one content source is required:
 Real uploads read ``CODERPAD_API_KEY`` from the environment.
 Get a key from your CoderPad dashboard settings.
 Missing, empty, and whitespace-only keys fail clearly.
-Dry runs need no key and make no network requests.
+Dry runs run offline without credentials.
 
 Single files must be UTF-8.
-Their text is preserved exactly, including CRLF, blank lines, trailing
-whitespace, a UTF-8 BOM, and documentation markers.
+Their text is preserved exactly, including CRLF, blank lines, trailing whitespace, a UTF-8 BOM, and documentation markers.
 Empty files are valid.
-Neither paths nor IDs are inferred from repository configuration.
+Supply paths and IDs explicitly.
 Inputs are fully read or staged before a mutation is issued.
 Errors exit nonzero.
 API error response bodies and credentials are never printed.
@@ -47,8 +44,7 @@ Uploads retain the SDK's retry behavior.
 Inspecting resources
 --------------------
 
-Read a complete question as JSON, including multi-file starter overlays,
-hidden/deleted flags, and project-template metadata:
+Read a complete question as JSON, including multi-file starter overlays, hidden/deleted flags, and project-template metadata:
 
 .. code-block:: console
 
@@ -58,13 +54,10 @@ hidden/deleted flags, and project-template metadata:
    coderpad languages get multifile_python
 
 These commands use ``CODERPAD_API_KEY``.
-The user response contains the key owner's name, anonymous identifier, and
-pad-creation capability.
+The user response contains the key owner's name, anonymous identifier, and pad-creation capability.
 CoderPad does not return the owner's email or organization role.
-Question files describe changes to a project template, so unchanged template
-files may be omitted.
-The question's variant summaries identify templates, while
-``questions variants get`` retrieves a variant's code.
+Question files describe changes to a project template, so unchanged template files may be omitted.
+The question's variant summaries identify templates, while ``questions variants get`` retrieves a variant's code.
 
 Inspect Screen campaigns with the separate ``CODERPAD_SCREEN_API_KEY``:
 
@@ -75,10 +68,8 @@ Inspect Screen campaigns with the separate ``CODERPAD_SCREEN_API_KEY``:
 
 For EU accounts, use ``--region eu`` instead of the default ``us`` region.
 Only the Screen key is required for these commands.
-A campaign definition contains its ordered question selections, settings, and
-team identity.
-These read commands print only the requested JSON resource to standard output
-and do not change remote resources.
+A campaign definition contains its ordered question selections, settings, and team identity.
+These read commands print only the requested JSON resource to standard output and do not change remote resources.
 
 Question variants
 -----------------
@@ -92,31 +83,25 @@ Create a variant once, using a language or project-template slug:
    coderpad questions variants create 123456 --language javascript --file ./starter.js
    coderpad questions variants create 123456 --language multifile_python --directory ./starter --exclude '*.zip'
 
-Successful creation writes only JSON to standard output, such as
-``{"question_id": 123456, "variant_id": 7}``.
-Save the returned ID in your upload configuration for later updates, because
-the CLI does not save IDs or match existing variants by language or title.
-Every real invocation creates a new variant and is never automatically retried.
+Successful creation writes only JSON to standard output, such as ``{"question_id": 123456, "variant_id": 7}``.
+Save the returned ID in your upload configuration for later updates, because the CLI does not save IDs or match existing variants by language or title.
+An invocation in write mode creates a new variant.
+Run it again manually if needed.
 Existing question metadata and other variants are not changed.
 
 Omitting both sources uses the language or project template's default content.
-Use ``--file`` for single-file starter code; an empty file explicitly creates
-blank code instead of using the default.
-Use ``--directory`` for project files, which are layered over the template at
-creation rather than replacing all template files.
-Source selection and UTF-8 validation match variant uploads.
+Use ``--file`` for single-file starter code; an empty file explicitly creates blank code instead of using the default.
+Use ``--directory`` for project files, which are layered over the template at creation rather than replacing all template files.
+The CLI applies the same rules for source selection and UTF-8 validation as it does for uploads of variants.
 ``--file`` and ``--directory`` are mutually exclusive.
 ``--exclude`` requires a directory.
 CoderPad validates whether the supplied language or template is available.
-Dry runs validate local inputs and print a JSON plan with the operation,
-question ID, language, and selected files, but no invented variant ID.
-They require neither credentials nor network access.
+Dry runs validate local inputs and print a JSON plan with the operation, question ID, language, and selected files, but no invented variant ID.
+They run offline without credentials.
 Errors go to standard error with a nonzero exit status.
-If a creation response is lost or invalid, check the question before retrying
-to avoid creating a duplicate.
+If a creation response is lost or invalid, check the question before retrying to avoid creating a duplicate.
 
-To update an existing variant rather than the question's starter code, add
-``--variant-id``:
+To update an existing variant rather than the question's starter code, add ``--variant-id``:
 
 .. code-block:: console
 
@@ -126,15 +111,12 @@ To update an existing variant rather than the question's starter code, add
 
 Question and variant IDs must be positive decimal integers.
 The variant must already exist.
-Only its starter code changes; the question metadata, other variants, selected
-language or project template, and solution are preserved.
+Only its starter code changes; the question metadata, other variants, selected language or project template, and solution are preserved.
 Directory uploads replace the variant's files using the SDK's JSON API.
 Every selected file must be UTF-8, including during a dry run.
-Exclude binary assets explicitly or use a normal question upload, which
-continues to support binary files through the SDK's ZIP importer.
+Exclude binary assets explicitly or use a normal question upload, which continues to support binary files through the SDK's ZIP importer.
 File text is preserved exactly for both variant upload modes.
-Dry runs identify the variant and selected files without requiring a key or
-making a request.
+Dry runs identify the variant and selected files without requiring a key or making a request.
 
 Directory selection
 -------------------
@@ -142,51 +124,41 @@ Directory selection
 * Both Git and non-Git directories work.
   Paths are relative to the current working directory.
   A Git worktree's ``.git`` file also identifies its root.
-* In a Git repository, rules are inherited from the nearest Git root down to
-  the upload directory.
-  Outside Git, rules start at the upload directory; unrelated parent
-  ``.gitignore`` files are not used.
+* In a Git repository, rules are inherited from the nearest Git root down to the upload directory.
+  Outside Git, start looking for rules in the upload directory.
 * Each traversed directory adds its own ``.gitignore`` rules.
-  Later matching rules override earlier ones, and deeper files override
-  ancestor rules.
-  Patterns are relative to their owning directory.
+  Later matching rules override earlier ones, and deeper files override ancestor rules.
+  Interpret each pattern relative to the directory that defines it.
   Directory-only rules and negations follow Gitignore semantics.
-  Excluded directories are pruned, so a child cannot re-include itself unless
-  its parent is re-included first.
+  Excluded directories are pruned, so a child cannot re-include itself unless its parent is re-included first.
   This also applies to ancestors of an explicitly selected nested upload root.
 * Ignore rules apply to tracked files too.
   Global Git excludes and ``.git/info/exclude`` are not read.
   Hidden files, including ``.gitignore``, are uploaded unless excluded.
 * ``.git`` files and directories are always excluded at every depth.
-  Repeatable ``--exclude PATTERN`` options form a final Gitignore rule layer,
-  relative to the upload root.
-  This layer can exclude files re-included by ``.gitignore``; its own later
-  negations can undo its earlier patterns.
+  Repeatable ``--exclude PATTERN`` options form a final Gitignore rule layer, relative to the upload root.
+  This layer can exclude files re-included by ``.gitignore``.
+  Later negations in this layer take precedence over its earlier patterns.
   It cannot re-include a file excluded by ``.gitignore`` or Git metadata.
 * ZIP files are included by default.
   Use ``--exclude '*.zip'`` to omit them.
   Add other exclusions explicitly, such as ``--exclude node_modules/``.
-* Selected symlinks (including directory, broken, and external links) and
-  symlinks in the source path are rejected rather than dereferenced.
+* Selected symlinks (including directory, broken, and external links) and symlinks in the source path are rejected rather than dereferenced.
   Ignored links are skipped.
   Symlinked ``.gitignore`` files are rejected when their rules would be read.
   Special files are rejected.
   Empty selections fail.
-  File bytes are copied to a temporary directory, and the SDK independently
-  validates and serializes that directory using its ZIP importer for normal
-  question uploads.
+  File bytes are copied to a temporary directory, and the SDK independently validates and serializes that directory using its ZIP importer for normal question uploads.
   Variant uploads send the staged files as UTF-8 JSON content instead.
 
 Development and distribution
 ----------------------------
 
-Development checks, release setup, and build instructions for Docker, Nix, and
-standalone binaries are in ``docs/source/development.rst``.
+Development checks, release setup, and build instructions for Docker, Nix, and standalone binaries are in ``docs/source/development.rst``.
 The generated CLI reference is in ``docs/source/cli.rst``.
 There are no prebuilt artifacts yet.
 
-See ``docs/source/migration.rst`` for migrating an existing shell uploader and
-keeping repository-specific snippet preparation outside this CLI.
+See ``docs/source/migration.rst`` for migrating an existing shell uploader and keeping repository-specific snippet preparation outside this CLI.
 
 Creating pads
 -------------
@@ -201,8 +173,7 @@ Inspect an environment before creating a project pad:
    coderpad pads create --language python3 --file ./starter.py
    coderpad pads create --question-id 123456
 
-Directory uploads use the SDK's ZIP importer and the same Git ignore and
-exclusion handling as question uploads.
+Directory uploads use the SDK's ZIP importer and the same Git ignore and exclusion handling as question uploads.
 Omit starter code to use the environment's default files.
 Real creation consumes your account's pad quota.
-Dry runs need no API key and make no network requests.
+Dry runs run offline without credentials.
