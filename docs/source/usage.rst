@@ -24,18 +24,23 @@ It does not delete the parent question or retry automatically.
 Explicit variant edits
 ----------------------
 
-Use ``questions variants update QUESTION_ID VARIANT_ID`` to change selected variant fields.
-Options include ``--language``, ``--solution-file``, ``--file``, ``--directory``, and ``--file-contents-json``.
+Use ``questions variants update QUESTION_ID VARIANT_ID`` to change selected
+variant fields.
+Options include ``--language``, ``--solution-file``, ``--file``,
+``--directory``, and ``--file-contents-json``.
 Creation also accepts ``--solution-file`` and ``--file-contents-json``.
 
 Omitted content stays omitted.
 An empty UTF-8 source file writes blank code.
 ``--reset-code`` sends explicit null to restore single-file defaults.
 ``--reset-project`` sends an empty file list to restore the project template.
-Changing language or template clears existing code unless replacement code is supplied.
-The starter-only ``questions upload --variant-id`` command keeps its existing behavior.
+Changing language or template clears existing code unless replacement code is
+supplied.
+The starter-only ``questions upload --variant-id`` command keeps its existing
+behavior.
 
-Project JSON is an array of file objects with ``path``, optional ``contents``, ``hidden``, and ``deleted``.
+Project JSON is an array of file objects with ``path``, optional ``contents``,
+``hidden``, and ``deleted``.
 Path-only removal entries retain omitted contents.
 An empty JSON array also restores the project template.
 On creation, overlays layer over template files.
