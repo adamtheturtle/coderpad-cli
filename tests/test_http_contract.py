@@ -18,9 +18,11 @@ from click.testing import CliRunner
 from jsonschema import Draft4Validator
 from jsonschema.exceptions import ValidationError
 from jsonschema.protocols import Validator
+from pydantic import JsonValue
 from respx.models import AllMockedAssertionError
 
 from coderpad_cli import main
+from tests.json_support import json_object
 from tests.test_cli import USAGE_ERROR, write_files
 
 _URL = "https://app.coderpad.io/api/questions/123456"
@@ -28,16 +30,9 @@ _VARIANT_URL = f"{_URL}/variants/7"
 _CONTRACT = Path(__file__).parents[1] / "spec" / "openapi.json"
 
 
-type JSONValue = (
-    bool | int | float | str | list[JSONValue] | dict[str, JSONValue] | None
-)
-
-
-def _contract_section(*keys: str) -> dict[str, JSONValue]:
+def _contract_section(*keys: str) -> dict[str, JsonValue]:
     """Read a dictionary section from the pinned shared contract."""
-    value: JSONValue = dict[str, JSONValue](
-        json.loads(s=_CONTRACT.read_text(encoding="utf-8")),
-    )
+    value: JsonValue = json_object(data=_CONTRACT.read_bytes())
     for key in keys:
         assert isinstance(value, dict)
         value = value[key]
@@ -45,7 +40,7 @@ def _contract_section(*keys: str) -> dict[str, JSONValue]:
     return value
 
 
-def _validator(schema: dict[str, JSONValue]) -> Validator:
+def _validator(schema: dict[str, JsonValue]) -> Validator:
     """Build a checked validator through jsonschema's typed protocol."""
     Draft4Validator.check_schema(schema=schema)
     return Draft4Validator(schema=schema)
@@ -323,7 +318,7 @@ def test_offline_dry_run_at_http_boundary(
         assert len(router.calls) == 0
 
 
-def _variant_response() -> dict[str, JSONValue]:
+def _variant_response() -> dict[str, JsonValue]:
     """Use the SDK contract's project-variant response example."""
     return {
         **_contract_section(
@@ -341,7 +336,7 @@ def _variant_response() -> dict[str, JSONValue]:
 
 
 def _validate_variant_request(
-    request: httpx.Request, expected: dict[str, JSONValue]
+    request: httpx.Request, expected: dict[str, JsonValue]
 ) -> None:
     """Check the JSON contract and the exact starter-only update."""
     schema = _contract_section(
@@ -356,7 +351,7 @@ def _validate_variant_request(
     validator = _validator(
         schema={**schema, "components": _contract_section("components")}
     )
-    body = dict[str, JSONValue](json.loads(s=request.content))
+    body = json_object(data=request.content)
     validator.validate(instance=body)
     assert body == expected
     assert request.method == "PUT"
@@ -422,7 +417,7 @@ def test_variant_directory(tmp_path: Path) -> None:
             "bundle.zip": b"excluded",
         },
     )
-    expected: dict[str, JSONValue] = {
+    expected: dict[str, JsonValue] = {
         "file_contents": [
             {"path": ".gitignore", "contents": "*.tmp\n"},
             {"path": "main.py", "contents": "pass\r\n"},
@@ -556,7 +551,7 @@ def test_create_variant(
         "--language",
         language,
     ]
-    expected: dict[str, JSONValue] = {"language": language}
+    expected: dict[str, JsonValue] = {"language": language}
     selected: list[str] = []
     if contents is not None:
         source = tmp_path / "starter.py"
@@ -609,7 +604,7 @@ def test_create_variant(
                 "components": _contract_section("components"),
             }
         )
-        body = dict[str, JSONValue](json.loads(s=request.content))
+        body = json_object(data=request.content)
         validator.validate(instance=body)
         assert body == expected
         assert request.method == "POST"
@@ -810,8 +805,8 @@ def test_variant_discovery(command: str) -> None:
             env={"CODERPAD_API_KEY": "synthetic-secret"},
         )
         assert result.exit_code == 0, result.output
-        output = dict[str, JSONValue](json.loads(s=result.output))
-        variant: JSONValue
+        output = json_object(data=result.output)
+        variant: JsonValue
         if command == "list":
             assert output["question_id"] == response["question_id"]
             variants = output["variants"]
@@ -937,11 +932,11 @@ def test_variant_discovery_malformed_response_is_safe(command: str) -> None:
 
 def _variant_edit_case(
     *, mode: str, tmp_path: Path
-) -> tuple[list[str], dict[str, JSONValue], list[JSONValue], str, str | None]:
+) -> tuple[list[str], dict[str, JsonValue], list[JsonValue], str, str | None]:
     """Prepare an edit and its independently expected wire attributes."""
     arguments = ["questions", "variants", "update", "123456", "7"]
-    expected: dict[str, JSONValue] = {}
-    paths: list[JSONValue] = []
+    expected: dict[str, JsonValue] = {}
+    paths: list[JsonValue] = []
     action = "omit"
     kind: str | None = None
     if mode in {"file", "blank", "language-source"}:
@@ -967,7 +962,7 @@ def _variant_edit_case(
         paths = ["main.py"]
         action, kind = "replace", "project"
     elif mode in {"overlay", "overlay-empty"}:
-        entries: list[dict[str, JSONValue]] = (
+        entries: list[dict[str, JsonValue]] = (
             []
             if mode == "overlay-empty"
             else [
@@ -995,7 +990,7 @@ def _variant_edit_case(
         action, kind = "reset", "single_file"
     elif mode == "reset-project":
         arguments.append("--reset-project")
-        expected["file_contents"] = list[JSONValue]()
+        expected["file_contents"] = list[JsonValue]()
         action, kind = "reset", "project"
     solution_path = tmp_path / "solution.py"
     if mode == "solution":
@@ -1047,7 +1042,7 @@ def test_explicit_variant_update(
         )
         assert result.exit_code == 0, result.output
         if dry_run:
-            plan: dict[str, JSONValue] = {
+            plan: dict[str, JsonValue] = {
                 "operation": "update_variant",
                 "question_id": 123456,
                 "variant_id": 7,

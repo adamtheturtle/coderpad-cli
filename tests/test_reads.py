@@ -7,12 +7,10 @@ import httpx
 import pytest
 import respx
 from click.testing import CliRunner
+from pydantic import JsonValue
 
 from coderpad_cli import main
-
-type JSONValue = (
-    bool | int | float | str | list[JSONValue] | dict[str, JSONValue] | None
-)
+from tests.json_support import json_object
 
 _QUESTION_URL = "https://app.coderpad.io/api/questions/123456"
 _USER_URL = "https://app.coderpad.io/api/user"
@@ -22,7 +20,7 @@ _INTERVIEW_KEY = "synthetic-interview-key"
 _SCREEN_KEY = "synthetic-screen-key"
 
 
-def _question() -> dict[str, JSONValue]:
+def _question() -> dict[str, JsonValue]:
     """A synthetic project question with an empty file and a removed
     file.
     """
@@ -61,9 +59,9 @@ def _question() -> dict[str, JSONValue]:
     }
 
 
-def _object(text: str) -> dict[str, JSONValue]:
+def _object(text: str) -> dict[str, JsonValue]:
     """Parse command JSON into a typed object."""
-    return dict[str, JSONValue](json.loads(s=text))
+    return json_object(data=text)
 
 
 def test_question_read(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -136,7 +134,7 @@ def test_screen_reads(
     monkeypatch.setenv(name="CODERPAD_SCREEN_API_KEY", value=_SCREEN_KEY)
     url = _SCREEN_EU if region == "eu" else _SCREEN_US
     arguments = ["screen", "campaigns", operation]
-    payload: JSONValue
+    payload: JsonValue
     if operation == "get":
         url += "/121"
         arguments.append("121")
@@ -248,7 +246,7 @@ def test_invalid_read_arguments(arguments: list[str]) -> None:
 def test_read_errors(
     arguments: Sequence[str],
     url: str,
-    malformed: JSONValue,
+    malformed: JsonValue,
     response_kind: str,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
