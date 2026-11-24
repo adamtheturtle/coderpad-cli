@@ -100,7 +100,8 @@ An invocation in write mode creates a new variant.
 Run it again manually if needed.
 Existing question metadata and other variants are not changed.
 
-Omitting both sources uses the language or project template's default content.
+If you omit both sources, CoderPad uses the default content for the selected
+language or project template.
 Use ``--file`` for single-file starter code; an empty file explicitly creates
 blank code instead of using the default.
 Use ``--directory`` for project files, which are layered over the template at
