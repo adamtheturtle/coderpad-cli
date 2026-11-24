@@ -12,6 +12,7 @@ from click.testing import CliRunner
 from coderpad.json_types import JsonValue
 
 from coderpad_cli import main
+from tests.json_support import json_object
 
 
 def _pad_payload() -> dict[str, JsonValue]:
@@ -107,7 +108,7 @@ def test_create_pad(source: str, *, dry_run: bool, tmp_path: Path) -> None:
             catch_exceptions=False,
         )
         assert result.exit_code == 0, result.output
-        value = json.loads(s=result.output)
+        value = json_object(data=result.output)
         if dry_run:
             assert value["dry_run"] is True
             assert not route.called

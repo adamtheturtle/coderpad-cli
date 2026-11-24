@@ -1,6 +1,7 @@
 """Keep public help text and the binary entry point stable."""
 
 import runpy
+from collections.abc import Sequence
 from pathlib import Path
 
 import pytest
@@ -8,6 +9,12 @@ from click.testing import CliRunner
 from pytest_regressions.file_regression import FileRegressionFixture
 
 from coderpad_cli import main
+
+
+def _argument_id(arguments: Sequence[str], /) -> str:
+    """Name a command by its argument path."""
+    command_path = "-".join(arguments)
+    return "root" if command_path == "" else command_path
 
 
 @pytest.mark.parametrize(
@@ -35,7 +42,7 @@ from coderpad_cli import main
         ["questions", "variants", "delete"],
         ["questions", "variants", "update"],
     ],
-    ids=lambda arguments: "-".join(arguments) or "root",
+    ids=_argument_id,
 )
 def test_help(
     arguments: list[str], file_regression: FileRegressionFixture
