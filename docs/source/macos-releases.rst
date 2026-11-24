@@ -1,8 +1,9 @@
 macOS releases
 ==============
 
-The standalone executable for macOS needs a Developer ID Application signature
-and Apple notarization.
+Sign the standalone executable for macOS, then submit it to Apple for
+notarization.
+The certificate type must be Developer ID Application.
 These steps follow the current ``literalizer-cli`` release workflow inspected
 at ``cf435b8ee67dd9900d795a8438622ad02aaaf730``.
 Installing the Python wheel with uv or pip does not use this binary.
@@ -19,7 +20,8 @@ Signing and verification
 
 The certificate import action creates a temporary keychain and removes it in
 its post step.
-Include one Developer ID Application identity in the PKCS#12 export.
+Include exactly one signing identity in the PKCS#12 export.
+Its certificate type must be Developer ID Application.
 An ambiguous identity fails the build.
 
 PyInstaller receives ``--codesign-identity "Developer ID Application"`` so that
@@ -62,8 +64,8 @@ binary workflow.
 The ``release`` environment on the PyPI job does not supply secrets to that
 separate job.
 
-* ``DEVELOPER_ID_APP_CERT_P12_BASE64``: the base64-encoded Developer ID
-  Application PKCS#12 export, including its private key.
+* ``DEVELOPER_ID_APP_CERT_P12_BASE64``: the base64-encoded PKCS#12 export of
+  the signing identity, including its private key.
 * ``DEVELOPER_ID_APP_CERT_PASSWORD``: the export's password.
 * ``APPLE_ID``: the Apple account used for notarization.
 * ``APPLE_TEAM_ID``: the team matching the signing identity.
